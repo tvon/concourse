@@ -2,10 +2,27 @@ package migrations
 
 import (
 	"database/sql"
-	"encoding/json"
 
-	"github.com/concourse/concourse/atc"
+	yaml "gopkg.in/yaml.v2"
 )
+
+type ResourceConfig struct {
+	Name         string   `yaml:"name"`
+	Public       bool     `yaml:"public,omitempty"`
+	WebhookToken string   `yaml:"webhook_token,omitempty"`
+	Type         string   `yaml:"type"`
+	Source       Source   `yaml:"source"`
+	CheckEvery   string   `yaml:"check_every,omitempty"`
+	CheckTimeout string   `yaml:"check_timeout,omitempty"`
+	Tags         []string `yaml:"tags,omitempty"`
+	Version      Version  `yaml:"version,omitempty"`
+}
+
+type Source map[string]interface{}
+
+type Params map[string]interface{}
+
+type Version map[string]string
 
 func (self *migrations) Down_1537546150() error {
 	tx, err := self.DB.Begin()
@@ -45,8 +62,8 @@ func (self *migrations) Down_1537546150() error {
 			return err
 		}
 
-		var config atc.ResourceConfig
-		err = json.Unmarshal(decryptedConfig, &config)
+		var config ResourceConfig
+		err = yaml.Unmarshal(decryptedConfig, &config)
 		if err != nil {
 			return err
 		}

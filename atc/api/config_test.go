@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
+	"os"
 
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/api/accessor/accessorfakes"
@@ -50,14 +49,6 @@ var _ = Describe("Config API", func() {
 					Type: "some-type",
 					Source: atc.Source{
 						"source-config": "some-value",
-						"nested": map[string]interface{}{
-							"key": "value",
-							"array": []interface{}{
-								map[string]interface{}{
-									"key": "value",
-								},
-							},
-						},
 					},
 				},
 			},
@@ -80,17 +71,7 @@ var _ = Describe("Config API", func() {
 						{
 							Get:      "some-input",
 							Resource: "some-resource",
-							Params: atc.Params{
-								"some-param": "some-value",
-								"nested": map[string]interface{}{
-									"key": "value",
-									"array": []interface{}{
-										map[string]interface{}{
-											"key": "value",
-										},
-									},
-								},
-							},
+							Params:   atc.Params{"some-param": "some-value"},
 						},
 						{
 							Task:       "some-task",
@@ -106,17 +87,7 @@ var _ = Describe("Config API", func() {
 						{
 							Put:      "some-output",
 							Resource: "some-resource",
-							Params: atc.Params{
-								"some-param": "some-value",
-								"nested": map[string]interface{}{
-									"key": "value",
-									"array": []interface{}{
-										map[string]interface{}{
-											"key": "value",
-										},
-									},
-								},
-							},
+							Params:   atc.Params{"some-param": "some-value"},
 						},
 					},
 				},
@@ -186,17 +157,7 @@ var _ = Describe("Config API", func() {
 									{
 										Get:      "some-input",
 										Resource: "some-resource",
-										Params: atc.Params{
-											"some-param": "some-value",
-											"nested": map[string]interface{}{
-												"key": "value",
-												"array": []interface{}{
-													map[string]interface{}{
-														"key": "value",
-													},
-												},
-											},
-										},
+										Params:   atc.Params{"some-param": "some-value"},
 									},
 									{
 										Task:       "some-task",
@@ -212,17 +173,7 @@ var _ = Describe("Config API", func() {
 									{
 										Put:      "some-output",
 										Resource: "some-resource",
-										Params: atc.Params{
-											"some-param": "some-value",
-											"nested": map[string]interface{}{
-												"key": "value",
-												"array": []interface{}{
-													map[string]interface{}{
-														"key": "value",
-													},
-												},
-											},
-										},
+										Params:   atc.Params{"some-param": "some-value"},
 									},
 								},
 							})
@@ -238,14 +189,6 @@ var _ = Describe("Config API", func() {
 								fakeResource.TypeReturns("some-type")
 								fakeResource.SourceReturns(atc.Source{
 									"source-config": "some-value",
-									"nested": map[string]interface{}{
-										"key": "value",
-										"array": []interface{}{
-											map[string]interface{}{
-												"key": "value",
-											},
-										},
-									},
 								})
 
 								fakePipeline.ResourcesReturns(db.Resources{fakeResource}, nil)
@@ -484,11 +427,10 @@ var _ = Describe("Config API", func() {
 						It("saves it", func() {
 							Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
 
-							name, savedConfig, id, pipelineState := dbTeam.SavePipelineArgsForCall(0)
+							name, savedConfig, id := dbTeam.SavePipelineArgsForCall(0)
 							Expect(name).To(Equal("a-pipeline"))
 							Expect(savedConfig).To(Equal(pipelineConfig))
 							Expect(id).To(Equal(db.ConfigVersion(42)))
-							Expect(pipelineState).To(Equal(db.PipelineNoChange))
 						})
 
 						Context("and saving it fails", func() {
@@ -568,21 +510,10 @@ var _ = Describe("Config API", func() {
 						It("saves it", func() {
 							Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
 
-							name, savedConfig, id, pipelineState := dbTeam.SavePipelineArgsForCall(0)
+							name, savedConfig, id := dbTeam.SavePipelineArgsForCall(0)
 							Expect(name).To(Equal("a-pipeline"))
 							Expect(savedConfig).To(Equal(pipelineConfig))
 							Expect(id).To(Equal(db.ConfigVersion(42)))
-							Expect(pipelineState).To(Equal(db.PipelineNoChange))
-						})
-
-						It("does not give the DB a map of empty interfaces to empty interfaces", func() {
-							Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
-
-							_, savedConfig, _, _ := dbTeam.SavePipelineArgsForCall(0)
-							Expect(savedConfig).To(Equal(pipelineConfig))
-
-							_, err := json.Marshal(pipelineConfig)
-							Expect(err).NotTo(HaveOccurred())
 						})
 
 						Context("when the payload contains suspicious types", func() {
@@ -622,7 +553,7 @@ jobs:
 							It("saves it", func() {
 								Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
 
-								name, savedConfig, id, pipelineState := dbTeam.SavePipelineArgsForCall(0)
+								name, savedConfig, id := dbTeam.SavePipelineArgsForCall(0)
 								Expect(name).To(Equal("a-pipeline"))
 								Expect(savedConfig).To(Equal(atc.Config{
 									Resources: []atc.ResourceConfig{
@@ -663,7 +594,6 @@ jobs:
 								}))
 
 								Expect(id).To(Equal(db.ConfigVersion(42)))
-								Expect(pipelineState).To(Equal(db.PipelineNoChange))
 							})
 						})
 
@@ -745,12 +675,11 @@ jobs:
 									It("passes validation and saves it un-interpolated", func() {
 										Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
 
-										name, savedConfig, id, pipelineState := dbTeam.SavePipelineArgsForCall(0)
+										name, savedConfig, id := dbTeam.SavePipelineArgsForCall(0)
 										Expect(name).To(Equal("a-pipeline"))
 										Expect(savedConfig).To(Equal(payloadAsConfig))
 
 										Expect(id).To(Equal(db.ConfigVersion(42)))
-										Expect(pipelineState).To(Equal(db.PipelineNoChange))
 									})
 
 									It("returns 200", func() {
@@ -770,7 +699,7 @@ jobs:
 									})
 
 									It("returns the credential name that was missing", func() {
-										Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{"errors":["1 error occurred:\n\t* failed to interpolate task config: Expected to find variables: BAR\n\n"]}`))
+										Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{"errors":["credential validation failed\n\n1 error occurred:\n\t* failed to interpolate task config: Expected to find variables: BAR\n\n"]}`))
 									})
 								})
 
@@ -785,7 +714,7 @@ jobs:
 									})
 
 									It("returns the credential name that was missing", func() {
-										Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{"errors":["1 error occurred:\n\t* failed to interpolate task config: Expected to find variables: BAR\n\n"]}`))
+										Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{"errors":["credential validation failed\n\n1 error occurred:\n\t* failed to interpolate task config: Expected to find variables: BAR\n\n"]}`))
 									})
 								})
 							})
@@ -847,292 +776,6 @@ jobs:
 							})
 						})
 					})
-
-					Context("multi-part requests", func() {
-						var pausedValue string
-						var expectedDBValue db.PipelinePausedState
-
-						writeMultiPart := func() {
-							body := &bytes.Buffer{}
-							writer := multipart.NewWriter(body)
-
-							yamlWriter, err := writer.CreatePart(
-								textproto.MIMEHeader{
-									"Content-type": {"application/x-yaml"},
-								},
-							)
-							Expect(err).NotTo(HaveOccurred())
-
-							yml, err := yaml.Marshal(pipelineConfig)
-							Expect(err).NotTo(HaveOccurred())
-
-							_, err = yamlWriter.Write(yml)
-
-							Expect(err).NotTo(HaveOccurred())
-
-							if pausedValue != "" {
-								err = writer.WriteField("paused", pausedValue)
-								Expect(err).NotTo(HaveOccurred())
-							}
-
-							_ = writer.Close()
-
-							request.Header.Set("Content-Type", writer.FormDataContentType())
-							request.Body = gbytes.BufferWithBytes(body.Bytes())
-						}
-
-						itSavesThePipeline := func() {
-							BeforeEach(writeMultiPart)
-
-							It("returns 200", func() {
-								Expect(response.StatusCode).To(Equal(http.StatusOK))
-							})
-
-							It("returns Content-Type 'application/json'", func() {
-								Expect(response.Header.Get("Content-Type")).To(Equal("application/json"))
-							})
-
-							It("saves it", func() {
-								Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
-
-								name, savedConfig, id, pipelineState := dbTeam.SavePipelineArgsForCall(0)
-								Expect(name).To(Equal("a-pipeline"))
-								Expect(savedConfig).To(Equal(pipelineConfig))
-								Expect(id).To(Equal(db.ConfigVersion(42)))
-								Expect(pipelineState).To(Equal(expectedDBValue))
-							})
-
-							Context("when it's the first time the pipeline has been created", func() {
-								BeforeEach(func() {
-									returnedPipeline := new(dbfakes.FakePipeline)
-									dbTeam.SavePipelineReturns(returnedPipeline, true, nil)
-								})
-
-								It("returns 201", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusCreated))
-								})
-							})
-
-							Context("and saving it fails", func() {
-								BeforeEach(func() {
-									dbTeam.SavePipelineReturns(nil, false, errors.New("oh no!"))
-								})
-
-								It("returns 500", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusInternalServerError))
-								})
-
-								It("returns the error in the response body", func() {
-									Expect(ioutil.ReadAll(response.Body)).To(Equal([]byte("failed to save config: oh no!")))
-								})
-							})
-
-							Context("when the config is invalid", func() {
-								BeforeEach(func() {
-									pipelineConfig.Groups[0].Resources = []string{"missing-resource"}
-									writeMultiPart()
-								})
-
-								It("returns 400", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusBadRequest))
-								})
-
-								It("returns Content-Type 'application/json'", func() {
-									Expect(response.Header.Get("Content-Type")).To(Equal("application/json"))
-								})
-
-								It("returns error JSON", func() {
-									Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{
-										"errors": [
-											"invalid groups:\n\tgroup 'some-group' has unknown resource 'missing-resource'\n"
-										]
-									}`))
-								})
-
-								It("does not save it", func() {
-									Expect(dbTeam.SavePipelineCallCount()).To(BeZero())
-								})
-							})
-
-							Context("when the config includes deprecations", func() {
-								BeforeEach(func() {
-									pipelineConfig.Jobs[0].Plan[1].ImageArtifactName = "some-image-artifact"
-									writeMultiPart()
-								})
-
-								It("returns warnings", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusOK))
-									Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{
-										"warnings": [{
-											"type": "pipeline",
-											"message": "jobs.some-job.plan[1].task.some-task specifies an image artifact to use as the container's image but also specifies an image or image resource in the task configuration; the image artifact takes precedence"
-										}]
-									}`))
-								})
-							})
-						}
-
-						Context("when paused is specified", func() {
-							BeforeEach(func() {
-								pausedValue = "true"
-								expectedDBValue = db.PipelinePaused
-							})
-
-							itSavesThePipeline()
-						})
-
-						Context("when unpaused is specified", func() {
-							BeforeEach(func() {
-								pausedValue = "false"
-								expectedDBValue = db.PipelineUnpaused
-							})
-
-							itSavesThePipeline()
-						})
-
-						Context("when neither paused or unpaused is specified", func() {
-							BeforeEach(func() {
-								pausedValue = ""
-								expectedDBValue = db.PipelineNoChange
-							})
-
-							itSavesThePipeline()
-						})
-
-						Context("when a strange paused value is specified", func() {
-							BeforeEach(func() {
-								body := &bytes.Buffer{}
-								writer := multipart.NewWriter(body)
-
-								yamlWriter, err := writer.CreatePart(
-									textproto.MIMEHeader{
-										"Content-type": {"application/x-yaml"},
-									},
-								)
-								Expect(err).NotTo(HaveOccurred())
-
-								yml, err := yaml.Marshal(pipelineConfig)
-								Expect(err).NotTo(HaveOccurred())
-
-								_, err = yamlWriter.Write(yml)
-
-								Expect(err).NotTo(HaveOccurred())
-
-								err = writer.WriteField("paused", "junk")
-								Expect(err).NotTo(HaveOccurred())
-
-								_ = writer.Close()
-
-								request.Header.Set("Content-Type", writer.FormDataContentType())
-								request.Body = gbytes.BufferWithBytes(body.Bytes())
-							})
-
-							It("returns 400", func() {
-								Expect(response.StatusCode).To(Equal(http.StatusBadRequest))
-							})
-
-							It("returns Content-Type 'application/json'", func() {
-								Expect(response.Header.Get("Content-Type")).To(Equal("application/json"))
-							})
-
-							It("returns error JSON", func() {
-								Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`{
-										"errors": [
-											"invalid paused value"
-										]
-									}`))
-							})
-						})
-
-						Context("when the config is malformed", func() {
-							Context("JSON", func() {
-								BeforeEach(func() {
-									body := &bytes.Buffer{}
-									writer := multipart.NewWriter(body)
-
-									yamlWriter, err := writer.CreatePart(
-										textproto.MIMEHeader{
-											"Content-type": {"application/json"},
-										},
-									)
-									Expect(err).NotTo(HaveOccurred())
-
-									_, err = yamlWriter.Write([]byte("{"))
-
-									Expect(err).NotTo(HaveOccurred())
-
-									_ = writer.Close()
-
-									request.Header.Set("Content-Type", writer.FormDataContentType())
-									request.Body = gbytes.BufferWithBytes(body.Bytes())
-								})
-
-								It("returns 400", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusBadRequest))
-								})
-
-								It("returns Content-Type 'application/json'", func() {
-									Expect(response.Header.Get("Content-Type")).To(Equal("application/json"))
-								})
-
-								It("returns error JSON", func() {
-									Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`
-										{
-											"errors": [
-												"malformed config"
-											]
-										}`))
-								})
-
-								It("does not save anything", func() {
-									Expect(dbTeam.SavePipelineCallCount()).To(Equal(0))
-								})
-							})
-
-							Context("YAML", func() {
-								BeforeEach(func() {
-									body := &bytes.Buffer{}
-									writer := multipart.NewWriter(body)
-
-									yamlWriter, err := writer.CreatePart(
-										textproto.MIMEHeader{
-											"Content-type": {"application/x-yaml"},
-										},
-									)
-									Expect(err).NotTo(HaveOccurred())
-
-									_, err = yamlWriter.Write([]byte("{"))
-									Expect(err).NotTo(HaveOccurred())
-
-									_ = writer.Close()
-
-									request.Header.Set("Content-Type", writer.FormDataContentType())
-									request.Body = gbytes.BufferWithBytes(body.Bytes())
-								})
-
-								It("returns 400", func() {
-									Expect(response.StatusCode).To(Equal(http.StatusBadRequest))
-								})
-
-								It("returns Content-Type 'application/json'", func() {
-									Expect(response.Header.Get("Content-Type")).To(Equal("application/json"))
-								})
-
-								It("returns error JSON", func() {
-									Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`
-										{
-											"errors": [
-												"malformed config"
-											]
-										}`))
-								})
-
-								It("does not save anything", func() {
-									Expect(dbTeam.SavePipelineCallCount()).To(Equal(0))
-								})
-							})
-						})
-					})
 				})
 
 				Context("when the Content-Type is unsupported", func() {
@@ -1175,6 +818,7 @@ jobs:
 						})
 						Expect(err).NotTo(HaveOccurred())
 
+						os.Stderr.Write(remoraPayload)
 						request.Body = gbytes.BufferWithBytes(remoraPayload)
 					})
 
@@ -1189,7 +833,7 @@ jobs:
 					It("saves it", func() {
 						Expect(dbTeam.SavePipelineCallCount()).To(Equal(1))
 
-						name, savedConfig, id, _ := dbTeam.SavePipelineArgsForCall(0)
+						name, savedConfig, id := dbTeam.SavePipelineArgsForCall(0)
 						Expect(name).To(Equal("a-pipeline"))
 						Expect(savedConfig).To(Equal(atc.Config{
 							Jobs: atc.JobConfigs{
@@ -1233,12 +877,7 @@ jobs:
 					})
 
 					It("returns an error in the response body", func() {
-						Expect(ioutil.ReadAll(response.Body)).To(MatchJSON(`
-							{
-								"errors": [
-									"unknown/extra keys:\n  - jobs[0].pubic\n"
-								]
-							}`))
+						Expect(ioutil.ReadAll(response.Body)).To(ContainSubstring("pubic"))
 					})
 
 					It("does not save it", func() {

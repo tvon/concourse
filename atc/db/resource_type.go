@@ -11,6 +11,7 @@ import (
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/creds"
 	"github.com/concourse/concourse/atc/db/lock"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type ResourceTypeNotFoundError struct {
@@ -240,7 +241,7 @@ func scanResourceType(t *resourceType, row scannable) error {
 	}
 
 	var config atc.ResourceType
-	err = json.Unmarshal(decryptedConfig, &config)
+	err = yaml.Unmarshal(decryptedConfig, &config)
 	if err != nil {
 		return err
 	}

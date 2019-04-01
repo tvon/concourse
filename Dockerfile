@@ -1,18 +1,16 @@
+# syntax=docker/dockerfile:experimental
+
 # NOTE: this Dockerfile is purely for local development! it is *not* used for
 # the official 'concourse/concourse' image.
 
 FROM concourse/dev
 
-# download go modules separately so this doesn't re-run on every change
-WORKDIR /src
-COPY go.mod .
-COPY go.sum .
-RUN grep '^replace' go.mod || go mod download
-
 # build Concourse without using 'packr' and set up a volume so the web assets
 # live-update
+WORKDIR /src
 COPY . .
-RUN go build -gcflags=all="-N -l" -o /usr/local/concourse/bin/concourse \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+      go build -gcflags=all="-N -l" -o /usr/local/concourse/bin/concourse \
       ./cmd/concourse
 VOLUME /src
 

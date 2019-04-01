@@ -14,6 +14,7 @@ import (
 	"github.com/concourse/concourse/atc/creds"
 	"github.com/concourse/concourse/atc/db/lock"
 	"github.com/lib/pq"
+	yaml "gopkg.in/yaml.v2"
 )
 
 //go:generate counterfeiter . Resource
@@ -617,7 +618,7 @@ func scanResource(r *resource, row scannable) error {
 	}
 
 	var config atc.ResourceConfig
-	err = json.Unmarshal(decryptedConfig, &config)
+	err = yaml.Unmarshal(decryptedConfig, &config)
 	if err != nil {
 		return err
 	}

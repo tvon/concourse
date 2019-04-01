@@ -5,84 +5,55 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type TaskConfig struct {
 	// The platform the task must run on (e.g. linux, windows).
-	Platform string `json:"platform,omitempty" yaml:"platform,omitempty" mapstructure:"platform"`
+	Platform string `yaml:"platform,omitempty"`
 
 	// Optional string specifying an image to use for the build. Depending on the
 	// platform, this may or may not be required (e.g. Windows/OS X vs. Linux).
-	RootfsURI string `json:"rootfs_uri,omitempty" yaml:"rootfs_uri,omitempty" mapstructure:"rootfs_uri"`
+	RootfsURI string `yaml:"rootfs_uri,omitempty"`
 
-	ImageResource *ImageResource `json:"image_resource,omitempty" yaml:"image_resource,omitempty" mapstructure:"image_resource"`
+	ImageResource *ImageResource `yaml:"image_resource,omitempty"`
 
 	// Limits to set on the Task Container
-	Limits ContainerLimits `json:"container_limits,omitempty" yaml:"container_limits,omitempty" mapstructure:"container_limits"`
+	Limits ContainerLimits `yaml:"container_limits,omitempty"`
 
 	// Parameters to pass to the task via environment variables.
-	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty" mapstructure:"params"`
+	Params map[string]string `yaml:"params,omitempty"`
 
 	// Script to execute.
-	Run TaskRunConfig `json:"run,omitempty" yaml:"run,omitempty" mapstructure:"run"`
+	Run TaskRunConfig `yaml:"run,omitempty"`
 
 	// The set of (logical, name-only) inputs required by the task.
-	Inputs []TaskInputConfig `json:"inputs,omitempty" yaml:"inputs,omitempty" mapstructure:"inputs"`
+	Inputs []TaskInputConfig `yaml:"inputs,omitempty"`
 
 	// The set of (logical, name-only) outputs provided by the task.
-	Outputs []TaskOutputConfig `json:"outputs,omitempty" yaml:"outputs,omitempty" mapstructure:"outputs"`
+	Outputs []TaskOutputConfig `yaml:"outputs,omitempty"`
 
 	// Path to cached directory that will be shared between builds for the same task.
-	Caches []CacheConfig `json:"caches,omitempty" yaml:"caches,omitempty" mapstructure:"caches"`
+	Caches []CacheConfig `yaml:"caches,omitempty"`
 }
 
 type ContainerLimits struct {
-	CPU    *uint64 `yaml:"cpu,omitempty" json:"cpu,omitempty"  mapstructure:"cpu"`
-	Memory *uint64 `yaml:"memory,omitempty" json:"memory,omitempty"  mapstructure:"memory"`
+	CPU    *uint64 `yaml:"cpu,omitempty"`
+	Memory *uint64 `yaml:"memory,omitempty"`
 }
 
 type ImageResource struct {
-	Type   string `yaml:"type"   json:"type"   mapstructure:"type"`
-	Source Source `yaml:"source" json:"source" mapstructure:"source"`
+	Type   string `yaml:"type"`
+	Source Source `yaml:"source"`
 
-	Params  *Params  `yaml:"params,omitempty"  json:"params,omitempty"  mapstructure:"params"`
-	Version *Version `yaml:"version,omitempty" json:"version,omitempty" mapstructure:"version"`
+	Params  *Params  `yaml:"params,omitempty"`
+	Version *Version `yaml:"version,omitempty"`
 }
 
 func NewTaskConfig(configBytes []byte) (TaskConfig, error) {
-	var untypedInput map[string]interface{}
-
-	if err := yaml.Unmarshal(configBytes, &untypedInput); err != nil {
-		return TaskConfig{}, err
-	}
-
 	var config TaskConfig
-	var metadata mapstructure.Metadata
-
-	msConfig := &mapstructure.DecoderConfig{
-		Metadata:         &metadata,
-		Result:           &config,
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			SanitizeDecodeHook,
-			ContainerLimitsDecodeHook,
-		),
-	}
-
-	decoder, err := mapstructure.NewDecoder(msConfig)
+	err := yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return TaskConfig{}, err
-	}
-
-	if err := decoder.Decode(untypedInput); err != nil {
-		return TaskConfig{}, err
-	}
-
-	if len(metadata.Unused) > 0 {
-		keys := strings.Join(metadata.Unused, ", ")
-		return TaskConfig{}, fmt.Errorf("extra keys in the task configuration: %s", keys)
 	}
 
 	err = config.Validate()
@@ -212,18 +183,18 @@ func (config TaskConfig) validateInputContainsNames() []string {
 }
 
 type TaskRunConfig struct {
-	Path string   `json:"path" yaml:"path"`
-	Args []string `json:"args,omitempty" yaml:"args,omitempty"`
-	Dir  string   `json:"dir,omitempty" yaml:"dir,omitempty"`
+	Path string   `yaml:"path"`
+	Args []string `yaml:"args,omitempty"`
+	Dir  string   `yaml:"dir,omitempty"`
 
 	// The user that the task will run as (defaults to whatever the docker image specifies)
-	User string `json:"user,omitempty" yaml:"user,omitempty" mapstructure:"user"`
+	User string `yaml:"user,omitempty"`
 }
 
 type TaskInputConfig struct {
-	Name     string `json:"name" yaml:"name"`
-	Path     string `json:"path,omitempty" yaml:"path,omitempty"`
-	Optional bool   `json:"optional,omitempty" yaml:"optional,omitempty"`
+	Name     string `yaml:"name"`
+	Path     string `yaml:"path,omitempty"`
+	Optional bool   `yaml:"optional,omitempty"`
 }
 
 func (input TaskInputConfig) resolvePath() string {
@@ -234,8 +205,8 @@ func (input TaskInputConfig) resolvePath() string {
 }
 
 type TaskOutputConfig struct {
-	Name string `json:"name" yaml:"name"`
-	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+	Name string `yaml:"name"`
+	Path string `yaml:"path,omitempty"`
 }
 
 func (output TaskOutputConfig) resolvePath() string {
@@ -251,5 +222,5 @@ type MetadataField struct {
 }
 
 type CacheConfig struct {
-	Path string `json:"path,omitempty" yaml:"path,omitempty" mapstructure:"path"`
+	Path string `yaml:"path,omitempty"`
 }

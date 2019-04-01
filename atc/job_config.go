@@ -1,26 +1,31 @@
 package atc
 
 type JobConfig struct {
-	Name   string `yaml:"name" json:"name" mapstructure:"name"`
-	Public bool   `yaml:"public,omitempty" json:"public,omitempty" mapstructure:"public"`
+	Name   string `yaml:"name"`
+	Public bool   `yaml:"public,omitempty"`
 
-	DisableManualTrigger bool     `yaml:"disable_manual_trigger,omitempty" json:"disable_manual_trigger,omitempty" mapstructure:"disable_manual_trigger"`
-	Serial               bool     `yaml:"serial,omitempty" json:"serial,omitempty" mapstructure:"serial"`
-	Interruptible        bool     `yaml:"interruptible,omitempty" json:"interruptible,omitempty" mapstructure:"interruptible"`
-	SerialGroups         []string `yaml:"serial_groups,omitempty" json:"serial_groups,omitempty" mapstructure:"serial_groups"`
-	RawMaxInFlight       int      `yaml:"max_in_flight,omitempty" json:"max_in_flight,omitempty" mapstructure:"max_in_flight"`
-	BuildLogsToRetain    int      `yaml:"build_logs_to_retain,omitempty" json:"build_logs_to_retain,omitempty" mapstructure:"build_logs_to_retain"`
+	DisableManualTrigger bool     `yaml:"disable_manual_trigger,omitempty"`
+	Serial               bool     `yaml:"serial,omitempty"`
+	Interruptible        bool     `yaml:"interruptible,omitempty"`
+	SerialGroups         []string `yaml:"serial_groups,omitempty"`
+	RawMaxInFlight       int      `yaml:"max_in_flight,omitempty"`
+	BuildLogsToRetain    int      `yaml:"build_logs_to_retain,omitempty"`
 
-	Plan PlanSequence `yaml:"plan,omitempty" json:"plan,omitempty" mapstructure:"plan"`
+	Abort   *PlanConfig `yaml:"on_abort,omitempty"`
+	Failure *PlanConfig `yaml:"on_failure,omitempty"`
+	Ensure  *PlanConfig `yaml:"ensure,omitempty"`
+	Success *PlanConfig `yaml:"on_success,omitempty"`
 
-	Abort   *PlanConfig `yaml:"on_abort,omitempty" json:"on_abort,omitempty" mapstructure:"on_abort"`
-	Failure *PlanConfig `yaml:"on_failure,omitempty" json:"on_failure,omitempty" mapstructure:"on_failure"`
-	Ensure  *PlanConfig `yaml:"ensure,omitempty" json:"ensure,omitempty" mapstructure:"ensure"`
-	Success *PlanConfig `yaml:"on_success,omitempty" json:"on_success,omitempty" mapstructure:"on_success"`
+	Plan PlanSequence `yaml:"plan"`
 }
 
 func (config JobConfig) Hooks() Hooks {
-	return Hooks{Abort: config.Abort, Failure: config.Failure, Ensure: config.Ensure, Success: config.Success}
+	return Hooks{
+		Abort:   config.Abort,
+		Failure: config.Failure,
+		Ensure:  config.Ensure,
+		Success: config.Success,
+	}
 }
 
 func (config JobConfig) MaxInFlight() int {

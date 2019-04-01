@@ -2,20 +2,21 @@ package migrations
 
 import (
 	"database/sql"
-	"encoding/json"
 	"strings"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 type GroupConfig struct {
-	Name string   `json:"name"`
-	Jobs []string `json:"jobs,omitempty"`
+	Name string   `yaml:"name"`
+	Jobs []string `yaml:"jobs,omitempty"`
 }
 
 type GroupConfigs []GroupConfig
 
 type Pipeline struct {
-	ID     int          `json:"id"`
-	Groups GroupConfigs `json:"groups,omitempty"`
+	ID     int
+	Groups GroupConfigs
 }
 
 func (self *migrations) Up_1522178770() error {
@@ -46,7 +47,7 @@ func (self *migrations) Up_1522178770() error {
 		if groups.Valid {
 			var pipelineGroups GroupConfigs
 
-			err = json.Unmarshal([]byte(groups.String), &pipelineGroups)
+			err = yaml.Unmarshal([]byte(groups.String), &pipelineGroups)
 			if err != nil {
 				return err
 			}

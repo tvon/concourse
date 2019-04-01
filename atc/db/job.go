@@ -10,6 +10,7 @@ import (
 	"github.com/concourse/concourse/atc/db/algorithm"
 	"github.com/concourse/concourse/atc/db/lock"
 	"github.com/lib/pq"
+	"gopkg.in/yaml.v2"
 )
 
 //go:generate counterfeiter . Job
@@ -821,7 +822,7 @@ func scanJob(j *job, row scannable) error {
 	}
 
 	var config atc.JobConfig
-	err = json.Unmarshal(decryptedConfig, &config)
+	err = yaml.Unmarshal(decryptedConfig, &config)
 	if err != nil {
 		return err
 	}
