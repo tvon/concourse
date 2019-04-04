@@ -46,6 +46,9 @@ type Job interface {
 	SaveIndependentInputMapping(inputMapping algorithm.InputMapping) error
 	DeleteNextInputMapping() error
 
+	SaveNextBuildPipes(inputMapping algorithm.InputMapping) error
+	DeleteNextBuildPipes() error
+
 	SetMaxInFlightReached(bool) error
 	GetRunningBuildsBySerialGroup(serialGroups []string) ([]Build, error)
 	GetNextPendingBuildBySerialGroup(serialGroups []string) (Build, bool, error)
@@ -448,6 +451,83 @@ func (j *job) EnsurePendingBuildExists() error {
 	return nil
 }
 
+func (j *job) SaveNextBuildPipes(inputMapping algorithm.InputMapping) error {
+	tx, err := j.conn.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer Rollback(tx)
+
+	rows, err := psql.Select("from_build_id").
+		From("next_build_pipes").
+		Where(sq.Eq{"to_job_id": j.id}).
+		RunWith(tx).
+		Query()
+	if err != nil {
+		return err
+	}
+
+	oldFromBuildIDs := map[int]bool{}
+
+	for rows.Next() {
+		var fromBuildID int
+		err = rows.Scan(&fromBuildID)
+		if err != nil {
+			return err
+		}
+
+		oldFromBuildIDs[fromBuildID] = true
+	}
+
+	fromBuildIDs := map[int]bool{}
+
+	for _, inputVersion := range inputMapping {
+		for _, buildID := range inputVersion.PassedBuildIDs {
+			fromBuildIDs[buildID] = true
+		}
+	}
+
+	for oldFromBuildID, _ := range oldFromBuildIDs {
+		if !fromBuildIDs[oldFromBuildID] {
+			_, err = psql.Delete("next_build_pipes").
+				Where(sq.Eq{
+					"to_job_id":     j.id,
+					"from_build_id": oldFromBuildID,
+				}).
+				RunWith(tx).
+				Exec()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for fromBuildID, _ := range fromBuildIDs {
+		if !oldFromBuildIDs[fromBuildID] {
+			_, err := psql.Insert("next_build_pipes").
+				SetMap(map[string]interface{}{
+					"to_job_id":     j.id,
+					"from_build_id": fromBuildID,
+				}).
+				RunWith(tx).
+				Exec()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (j *job) DeleteNextBuildPipes() error {
+	_, err := psql.Delete("next_build_pipes").
+		Where(sq.Eq{"to_job_id": j.id}).
+		RunWith(j.conn).Exec()
+	return err
+}
+
 func (j *job) GetPendingBuilds() ([]Build, error) {
 	builds := []Build{}
 
@@ -716,12 +796,12 @@ func (j *job) saveJobInputMapping(table string, inputMapping algorithm.InputMapp
 			return err
 		}
 
-		oldInputMapping[inputName] = inputVersion
+		oldInputMapping[inputName] = algorithm.InputSource{InputVersion: inputVersion}
 	}
 
 	for inputName, oldInputVersion := range oldInputMapping {
-		inputVersion, found := inputMapping[inputName]
-		if !found || inputVersion != oldInputVersion {
+		inputSource, found := inputMapping[inputName]
+		if !found || inputSource.InputVersion != oldInputVersion.InputVersion {
 			_, err = psql.Delete(table).
 				Where(sq.Eq{
 					"job_id":     j.id,
@@ -735,16 +815,16 @@ func (j *job) saveJobInputMapping(table string, inputMapping algorithm.InputMapp
 		}
 	}
 
-	for inputName, inputVersion := range inputMapping {
+	for inputName, inputSource := range inputMapping {
 		oldInputVersion, found := oldInputMapping[inputName]
-		if !found || inputVersion != oldInputVersion {
+		if !found || inputSource.InputVersion != oldInputVersion.InputVersion {
 			_, err := psql.Insert(table).
 				SetMap(map[string]interface{}{
 					"job_id":                     j.id,
 					"input_name":                 inputName,
-					"resource_config_version_id": inputVersion.VersionID,
-					"resource_id":                inputVersion.ResourceID,
-					"first_occurrence":           inputVersion.FirstOccurrence,
+					"resource_config_version_id": inputSource.InputVersion.VersionID,
+					"resource_id":                inputSource.InputVersion.ResourceID,
+					"first_occurrence":           inputSource.InputVersion.FirstOccurrence,
 				}).
 				RunWith(tx).
 				Exec()

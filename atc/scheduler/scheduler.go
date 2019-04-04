@@ -71,10 +71,10 @@ func (s *Scheduler) ensurePendingBuildExists(
 	}
 
 	for _, inputConfig := range job.Config().Inputs() {
-		inputVersion, ok := inputMapping[inputConfig.Name]
+		inputSource, ok := inputMapping[inputConfig.Name]
 
 		//trigger: true, and the version has not been used
-		if ok && inputVersion.FirstOccurrence && inputConfig.Trigger {
+		if ok && inputSource.InputVersion.FirstOccurrence && inputConfig.Trigger {
 			err := job.EnsurePendingBuildExists()
 			if err != nil {
 				logger.Error("failed-to-ensure-pending-build-exists", err)
