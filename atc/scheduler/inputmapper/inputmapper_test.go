@@ -127,7 +127,7 @@ var _ = Describe("Inputmapper", func() {
 						Expect(mappingErr).To(Equal(disaster))
 					})
 
-					It("saved the right input mapping", func() {
+					FIt("saved the right input mapping", func() {
 						Expect(fakeJob.SaveIndependentInputMappingCallCount()).To(Equal(1))
 						actualMapping := fakeJob.SaveIndependentInputMappingArgsForCall(0)
 						Expect(actualMapping).To(Equal(algorithm.InputMapping{

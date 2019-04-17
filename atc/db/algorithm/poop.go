@@ -18,20 +18,35 @@ type version struct {
 	ID             int
 	VouchedForBy   map[int]bool
 	SourceBuildIds []int
+	PassedJobIDs   JobSet
+	InputName      string
 }
 
-func newVersion(id int) *version {
+func newVersion(id int, passed JobSet, name string) *version {
 	return &version{
 		ID:             id,
 		VouchedForBy:   map[int]bool{},
 		SourceBuildIds: []int{},
+		PassedJobIDs:   passed,
+		InputName:      name,
 	}
 }
 
 func Resolve(db *VersionsDB, inputConfigs InputConfigs) ([]*version, bool, error) {
 	versions := make([]*version, len(inputConfigs))
+	for i, input := range inputConfigs {
+		versions[i] = &version{
+			VouchedForBy:   map[int]bool{},
+			SourceBuildIds: []int{},
+			PassedJobIDs:   input.Passed,
+			InputName:      input.Name,
+		}
+	}
 
-	resolved, err := resolve(0, db, inputConfigs, versions)
+	independentCandidates := make(map[string]bool)
+
+	resolved, err := resolve(0, db, inputConfigs, versions, independentCandidates)
+	fmt.Println(independentCandidates)
 	if err != nil {
 		return nil, false, err
 	}
@@ -43,7 +58,7 @@ func Resolve(db *VersionsDB, inputConfigs InputConfigs) ([]*version, bool, error
 	return nil, false, nil
 }
 
-func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []*version) (bool, error) {
+func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []*version, independentCandidates map[string]bool) (bool, error) {
 	// NOTE: this is probably made most efficient by doing it in order of inputs
 	// with jobs that have the broadest output sets, so that we can pin the most
 	// at once
@@ -115,7 +130,8 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 				debug("setting candidate", i, "to version for latest", versionID)
 			}
 
-			candidates[i] = newVersion(versionID)
+			// err := db.SaveIndependentBuildInput(inputConfig.Name)
+			candidates[i] = newVersion(versionID, nil, inputConfig.Name)
 			continue
 		}
 
@@ -211,7 +227,7 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 							break outputs
 						}
 
-						if candidate != nil && candidate.ID != output.VersionID {
+						if candidate.ID != 0 && candidate.ID != output.VersionID {
 							// don't return here! just try the next output set. it's possible
 							// we just need to use an older output set.
 							debug("mismatch")
@@ -221,24 +237,52 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 
 						// if this doesn't work out, restore it to either nil or the
 						// candidate *without* the job vouching for it
-						if candidate == nil {
-							restore[c] = nil
+						if candidate.ID == 0 {
+							// restore[c] = nil
+							restore[c] = &version{
+								VouchedForBy:   map[int]bool{},
+								SourceBuildIds: []int{},
+								PassedJobIDs:   candidates[c].PassedJobIDs,
+								InputName:      candidates[c].InputName,
+							}
 
 							debug("setting candidate", c, "to", output.VersionID)
-							candidates[c] = newVersion(output.VersionID)
+							candidates[c] = newVersion(output.VersionID, candidates[c].PassedJobIDs, candidates[c].InputName)
 						}
 
 						debug("job", jobID, "vouching for", output.ResourceID, "version", output.VersionID)
 						candidates[c].VouchedForBy[jobID] = true
 						candidates[c].SourceBuildIds = append(candidates[c].SourceBuildIds, buildID)
+
+						if !independentCandidates[candidates[c].InputName] {
+							allVouched := true
+							fmt.Println("going through passed jobs for " + inputConfig.Name)
+							for i, _ := range candidates[c].PassedJobIDs {
+								fmt.Println(i)
+								if !candidates[c].VouchedForBy[i] {
+									fmt.Printf("Not vouched! %d", i)
+									allVouched = false
+								}
+							}
+
+							if allVouched {
+								// err := db.SaveIndependentBuildInput(inputConfig.Name)
+								// if err != nil {
+								//   return false, err
+								// }
+
+								fmt.Println("saving independent candidate " + candidates[c].InputName)
+								independentCandidates[candidates[c].InputName] = true
+							}
+						}
 					}
 				}
 
 				// we found a candidate for ourselves and the rest are OK too - recurse
-				if candidates[i] != nil && candidates[i].VouchedForBy[jobID] && !mismatch {
+				if candidates[i].ID != 0 && candidates[i].VouchedForBy[jobID] && !mismatch {
 					debug("recursing")
 
-					resolved, err := resolve(depth+1, db, inputConfigs, candidates)
+					resolved, err := resolve(depth+1, db, inputConfigs, candidates, independentCandidates)
 					if err != nil {
 						return false, err
 					}
