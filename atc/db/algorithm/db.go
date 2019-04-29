@@ -39,7 +39,7 @@ func (db VersionsDB) IsVersionFirstOccurrence(versionID int, jobID int, inputNam
 	return !exists, nil
 }
 
-func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, error) {
+func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) {
 	var scopeID int
 	err := psql.Select("resource_config_scope_id").
 		From("resources").
@@ -48,7 +48,10 @@ func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, error) {
 		QueryRow().
 		Scan(&scopeID)
 	if err != nil {
-		return 0, err
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
 	}
 
 	var versionID int
@@ -61,10 +64,13 @@ func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, error) {
 		QueryRow().
 		Scan(&versionID)
 	if err != nil {
-		return 0, err
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
 	}
 
-	return versionID, nil
+	return versionID, true, nil
 }
 
 func (db VersionsDB) SuccessfulBuilds(jobID int) ([]int, error) {
@@ -180,7 +186,7 @@ func (db VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
 	return buildID, true, nil
 }
 
-func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, error) {
+func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, bool, error) {
 	var checkOrder int
 	err := psql.Select("rcv.check_order").
 		From("resource_config_versions rcv, resources r, build_resource_config_version_inputs i").
@@ -198,7 +204,7 @@ func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, error) 
 		if err == sql.ErrNoRows {
 			return db.LatestVersionOfResource(resourceID)
 		}
-		return 0, err
+		return 0, false, err
 	}
 
 	var nextVersionID int
@@ -213,11 +219,11 @@ func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, error) 
 		Scan(&nextVersionID)
 
 	if nextVersionID != 0 {
-		return nextVersionID, nil
+		return nextVersionID, true, nil
 	}
 
 	if err != nil && err != sql.ErrNoRows {
-		return 0, err
+		return 0, false, err
 	}
 
 	err = psql.Select("rcv.id").
@@ -231,10 +237,13 @@ func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, error) 
 		Scan(&nextVersionID)
 
 	if err != nil {
-		return 0, err
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
 	}
 
-	return nextVersionID, nil
+	return nextVersionID, true, nil
 }
 
 func (db VersionsDB) LatestConstraintBuildID(buildID int, passedJobID int) (int, bool, error) {

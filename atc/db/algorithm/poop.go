@@ -1,6 +1,7 @@
 package algorithm
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -13,6 +14,17 @@ import (
 // QUESTION: is version_md5 worth it? might it be surprising
 // that all it takes is (resource name, version identifier)
 // to consider something 'passed'?
+
+var ErrLatestVersionNotFound = errors.New("latest version of resource not found")
+var ErrVersionNotFound = errors.New("version of resource not found")
+
+type PinnedVersionNotFoundError struct {
+	PinnedVersionID int
+}
+
+func (e PinnedVersionNotFoundError) Error() string {
+	return fmt.Sprintf("pinned version %d not found", e.PinnedVersionID)
+}
 
 type version struct {
 	ID             int
@@ -43,10 +55,9 @@ func Resolve(db *VersionsDB, inputConfigs InputConfigs) ([]*version, bool, error
 		}
 	}
 
-	independentCandidates := make(map[string]bool)
+	unresolvedCandidates := make([]error, len(inputConfigs))
 
-	resolved, err := resolve(0, db, inputConfigs, versions, independentCandidates)
-	fmt.Println(independentCandidates)
+	resolved, err := resolve(0, db, inputConfigs, versions, unresolvedCandidates)
 	if err != nil {
 		return nil, false, err
 	}
@@ -58,7 +69,7 @@ func Resolve(db *VersionsDB, inputConfigs InputConfigs) ([]*version, bool, error
 	return nil, false, nil
 }
 
-func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []*version, independentCandidates map[string]bool) (bool, error) {
+func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []*version, unresolvedCandidates []error) (bool, error) {
 	// NOTE: this is probably made most efficient by doing it in order of inputs
 	// with jobs that have the broadest output sets, so that we can pin the most
 	// at once
@@ -68,6 +79,7 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 	//
 	// NOTE : make sure everything is deterministically ordered
 
+ousdelivery:
 	for i, inputConfig := range inputConfigs {
 		debug := func(messages ...interface{}) {
 			log.Println(
@@ -95,7 +107,8 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 				}
 
 				if !exists {
-					return false, nil
+					unresolvedCandidates[i] = PinnedVersionNotFoundError{inputConfig.PinnedVersionID}
+					continue ousdelivery
 				}
 
 				versionID = inputConfig.PinnedVersionID
@@ -107,14 +120,24 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 				}
 
 				if found {
-					versionID, err = db.NextEveryVersion(buildID, inputConfig.ResourceID)
+					versionID, found, err = db.NextEveryVersion(buildID, inputConfig.ResourceID)
 					if err != nil {
 						return false, err
 					}
+
+					if !found {
+						unresolvedCandidates[i] = ErrVersionNotFound
+						continue ousdelivery
+					}
 				} else {
-					versionID, err = db.LatestVersionOfResource(inputConfig.ResourceID)
+					versionID, found, err = db.LatestVersionOfResource(inputConfig.ResourceID)
 					if err != nil {
 						return false, err
+					}
+
+					if !found {
+						unresolvedCandidates[i] = ErrLatestVersionNotFound
+						continue ousdelivery
 					}
 				}
 
@@ -122,15 +145,20 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 			} else {
 				// there are no passed constraints, so just take the latest version
 				var err error
-				versionID, err = db.LatestVersionOfResource(inputConfig.ResourceID)
+				var found bool
+				versionID, found, err = db.LatestVersionOfResource(inputConfig.ResourceID)
 				if err != nil {
 					return false, nil
+				}
+
+				if !found {
+					unresolvedCandidates[i] = ErrLatestVersionNotFound
+					continue ousdelivery
 				}
 
 				debug("setting candidate", i, "to version for latest", versionID)
 			}
 
-			// err := db.SaveIndependentBuildInput(inputConfig.Name)
 			candidates[i] = newVersion(versionID, nil, inputConfig.Name)
 			continue
 		}
@@ -253,28 +281,6 @@ func resolve(depth int, db *VersionsDB, inputConfigs InputConfigs, candidates []
 						debug("job", jobID, "vouching for", output.ResourceID, "version", output.VersionID)
 						candidates[c].VouchedForBy[jobID] = true
 						candidates[c].SourceBuildIds = append(candidates[c].SourceBuildIds, buildID)
-
-						if !independentCandidates[candidates[c].InputName] {
-							allVouched := true
-							fmt.Println("going through passed jobs for " + inputConfig.Name)
-							for i, _ := range candidates[c].PassedJobIDs {
-								fmt.Println(i)
-								if !candidates[c].VouchedForBy[i] {
-									fmt.Printf("Not vouched! %d", i)
-									allVouched = false
-								}
-							}
-
-							if allVouched {
-								// err := db.SaveIndependentBuildInput(inputConfig.Name)
-								// if err != nil {
-								//   return false, err
-								// }
-
-								fmt.Println("saving independent candidate " + candidates[c].InputName)
-								independentCandidates[candidates[c].InputName] = true
-							}
-						}
 					}
 				}
 
