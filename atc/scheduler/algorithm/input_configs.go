@@ -1,46 +1,69 @@
 package algorithm
 
+import (
+	"errors"
+	"fmt"
+
+	"github.com/concourse/concourse/atc/db"
+)
+
 type InputConfigs []InputConfig
 
 type InputConfig struct {
 	Name            string
 	JobName         string
-	Passed          JobSet
+	Passed          db.JobSet
 	UseEveryVersion bool
 	PinnedVersionID int
 	ResourceID      int
 	JobID           int
 }
 
-func (configs InputConfigs) Resolve(db *VersionsDB) (InputMapping, bool, error) {
-	mapping := InputMapping{}
+func (configs InputConfigs) ComputeNextInputs(versionsDB *db.VersionsDB) (db.InputMapping, bool, error) {
+	mapping := db.InputMapping{}
 
-	versions, ok, err := Resolve(db, configs)
+	versions, err := Resolve(versionsDB, configs)
 	if err != nil {
 		return nil, false, err
 	}
 
-	if !ok {
-		return nil, false, nil
+	fmt.Println("################", versions[0])
+	fmt.Println("$$$$$$$$$$$$$$$$", configs)
+	valid := true
+	for i, config := range configs {
+		if versions[i] == nil {
+			mapping[config.Name] = db.InputResult{
+				ResolveError: errors.New("did not finish due to other resource errors"),
+			}
+
+			valid = false
+		} else if versions[i].ResolveError != nil {
+			mapping[config.Name] = db.InputResult{
+				ResolveError: versions[i].ResolveError,
+			}
+
+			valid = false
+		} else {
+			firstOccurrence, err := versionsDB.IsVersionFirstOccurrence(versions[i].ID, config.JobID, config.Name)
+			if err != nil {
+				return nil, false, err
+			}
+
+			fmt.Println("####################", versions[i])
+			mapping[config.Name] = db.InputResult{
+				Input: db.AlgorithmInput{
+					AlgorithmVersion: db.AlgorithmVersion{
+						ResourceID: config.ResourceID,
+						VersionID:  versions[i].ID,
+					},
+					FirstOccurrence: firstOccurrence,
+				},
+				PassedBuildIDs: versions[i].SourceBuildIds,
+			}
+		}
 	}
 
-	for i, v := range versions {
-		firstOccurrence, err := db.IsVersionFirstOccurrence(v.ID, configs[i].JobID, configs[i].Name)
-		if err != nil {
-			return nil, false, err
-		}
-
-		mapping[configs[i].Name] = InputSource{
-			InputVersion: InputVersion{
-				ResourceID:      configs[i].ResourceID,
-				VersionID:       v.ID,
-				FirstOccurrence: firstOccurrence,
-			},
-			PassedBuildIDs: v.SourceBuildIds,
-		}
-	}
-
-	return mapping, true, nil
+	return mapping, valid, nil
 }
 
 // func (configs InputConfigs) Resolve(db *VersionsDB) (InputMapping, bool, error) {

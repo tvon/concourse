@@ -87,6 +87,29 @@ var _ = FDescribeTable("Input resolving",
 		},
 	}),
 
+	Entry("resolve a resource when it has versions", Example{
+		DB: DB{
+			Resources: []DBRow{
+				{Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+			},
+		},
+
+		Inputs: Inputs{
+			{
+				Name:     "resource-x",
+				Resource: "resource-x",
+				Version:  Version{Latest: true},
+			},
+		},
+
+		Result: Result{
+			OK: true,
+			Values: map[string]string{
+				"resource-x": "rxv1",
+			},
+		},
+	}),
+
 	Entry("does not resolve a resource when it does not have any versions", Example{
 		Inputs: Inputs{
 			{
@@ -99,6 +122,9 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{
+				"resource-x": "pinned version 'rxv2' not found",
+			},
 		},
 	}),
 
@@ -140,6 +166,7 @@ var _ = FDescribeTable("Input resolving",
 		},
 	}),
 
+	//XXX: revisit unique output names (get and put can currently use the same name, but moving forward we don't want this)
 	Entry("can collect distinct versions of resources without correlating by job", Example{
 		DB: DB{
 			BuildOutputs: []DBRow{
@@ -278,6 +305,7 @@ var _ = FDescribeTable("Input resolving",
 				"resource-x-unconstrained": "rxv5",
 				"resource-y-unconstrained": "ryv5",
 			},
+			// IC: map[string]bool{},
 		},
 	}),
 
@@ -342,6 +370,10 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{
+				"resource-x": "passed job 3 does not have a build that satisfies the constraints",
+				"resource-y": "did not finish due to other resource errors",
+			},
 		},
 	}),
 
@@ -636,6 +668,9 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{
+				"resource-x": "passed job 2 does not have a build that satisfies the constraints",
+			},
 		},
 	}),
 
@@ -850,6 +885,9 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{
+				"resource-x": "passed job 3 does not have a build that satisfies the constraints",
+			},
 		},
 	}),
 
@@ -1486,7 +1524,7 @@ var _ = FDescribeTable("Input resolving",
 		},
 	}),
 
-	FEntry("returns the earliest non-disabled version that satisfies constraints when several versions do not satisfy when using every version", Example{
+	Entry("returns the earliest non-disabled version that satisfies constraints when several versions do not satisfy when using every version", Example{
 		DB: DB{
 			BuildInputs: []DBRow{
 				{Job: CurrentJobName, BuildID: 100, Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
@@ -1527,11 +1565,16 @@ var _ = FDescribeTable("Input resolving",
 				{Job: "shared-job", BuildID: 12, Resource: "resource-y", Version: "ryv2", CheckOrder: 1},
 
 				{Job: "simple-1", BuildID: 13, Resource: "resource-a", Version: "rav1", CheckOrder: 1},
+				{Job: "simple-1", BuildID: 13, Resource: "resource-c", Version: "rcv1", CheckOrder: 1},
 				{Job: "simple-1", BuildID: 14, Resource: "resource-a", Version: "rav2", CheckOrder: 2},
+				{Job: "simple-1", BuildID: 14, Resource: "resource-c", Version: "rcv2", CheckOrder: 2},
 				{Job: "simple-1", BuildID: 15, Resource: "resource-a", Version: "rav3", CheckOrder: 3},
+				{Job: "simple-1", BuildID: 15, Resource: "resource-c", Version: "rcv3", CheckOrder: 3},
 
-				{Job: "simple-3", BuildID: 16, Resource: "resource-d", Version: "rdv1", CheckOrder: 1},
-				{Job: "simple-3", BuildID: 17, Resource: "resource-d", Version: "rdv2", CheckOrder: 2},
+				{Job: "simple-2", BuildID: 16, Resource: "resource-b", Version: "rbv1", CheckOrder: 1},
+
+				{Job: "simple-3", BuildID: 17, Resource: "resource-d", Version: "rdv1", CheckOrder: 1},
+				{Job: "simple-3", BuildID: 18, Resource: "resource-d", Version: "rdv2", CheckOrder: 2},
 			},
 
 			Resources: []DBRow{
@@ -1591,15 +1634,15 @@ var _ = FDescribeTable("Input resolving",
 				Passed:   []string{"simple-2"},
 			},
 			{
+				Name:     "resource-c",
+				Resource: "resource-c",
+				Version:  Version{Every: true},
+			},
+			{
 				Name:     "resource-d",
 				Resource: "resource-d",
 				Version:  Version{Every: true},
 				Passed:   []string{"shared-job", "simple-b", "simple-3"},
-			},
-			{
-				Name:     "resource-c",
-				Resource: "resource-c",
-				Version:  Version{Every: true},
 			},
 		},
 
@@ -1695,9 +1738,13 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{
+				"resource-x": "pinned version 4 not found",
+			},
 		},
 	}),
 
+	// XXX: Passing for the wrong reasons
 	Entry("does not resolve a version when the pinned version has not passed the constraint", Example{
 		DB: DB{
 			Resources: []DBRow{
@@ -1720,6 +1767,7 @@ var _ = FDescribeTable("Input resolving",
 		Result: Result{
 			OK:     false,
 			Values: map[string]string{},
+			Errors: map[string]string{"resource-x": "passed job 1 does not have a build that satisfies the constraints"},
 		},
 	}),
 

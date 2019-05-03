@@ -2,7 +2,8 @@ package algorithm_test
 
 import (
 	sq "github.com/Masterminds/squirrel"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/db"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -26,9 +27,9 @@ var _ = Describe("Resolve", func() {
 	}
 
 	var (
-		versionsDB   *algorithm.VersionsDB
+		versionsDB   *db.VersionsDB
 		inputConfigs algorithm.InputConfigs
-		inputMapping algorithm.InputMapping
+		inputMapping db.InputMapping
 		buildInputs  []buildInput
 		buildOutputs []buildOutput
 	)
@@ -108,8 +109,8 @@ var _ = Describe("Resolve", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		versionsDB = &algorithm.VersionsDB{
-			Runner:      dbConn,
+		versionsDB = &db.VersionsDB{
+			Conn:        dbConn,
 			JobIDs:      setup.jobIDs,
 			ResourceIDs: setup.resourceIDs,
 		}
@@ -118,7 +119,7 @@ var _ = Describe("Resolve", func() {
 			{
 				Name:       "some-input",
 				JobName:    "j1",
-				Passed:     algorithm.JobSet{},
+				Passed:     db.JobSet{},
 				ResourceID: 1,
 				JobID:      1,
 			},
@@ -126,7 +127,7 @@ var _ = Describe("Resolve", func() {
 
 		var ok bool
 		var err error
-		inputMapping, ok, err = inputConfigs.Resolve(versionsDB)
+		inputMapping, ok, err = inputConfigs.ComputeNextInputs(versionsDB)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ok).To(BeTrue())
 	})
@@ -162,9 +163,12 @@ var _ = Describe("Resolve", func() {
 		})
 
 		It("sets FirstOccurrence to false", func() {
-			Expect(inputMapping).To(Equal(algorithm.InputMapping{
-				"some-input": algorithm.InputSource{
-					InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 1, FirstOccurrence: false},
+			Expect(inputMapping).To(Equal(db.InputMapping{
+				"some-input": db.InputResult{
+					Input: db.AlgorithmInput{
+						AlgorithmVersion: db.AlgorithmVersion{VersionID: 2, ResourceID: 1},
+						FirstOccurrence:  false,
+					},
 					PassedBuildIDs: []int{},
 				},
 			}))
@@ -186,9 +190,12 @@ var _ = Describe("Resolve", func() {
 		})
 
 		It("sets FirstOccurrence to true", func() {
-			Expect(inputMapping).To(Equal(algorithm.InputMapping{
-				"some-input": algorithm.InputSource{
-					InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 1, FirstOccurrence: true},
+			Expect(inputMapping).To(Equal(db.InputMapping{
+				"some-input": db.InputResult{
+					Input: db.AlgorithmInput{
+						AlgorithmVersion: db.AlgorithmVersion{VersionID: 2, ResourceID: 1},
+						FirstOccurrence:  true,
+					},
 					PassedBuildIDs: []int{},
 				},
 			}))
@@ -210,9 +217,12 @@ var _ = Describe("Resolve", func() {
 		})
 
 		It("sets FirstOccurrence to true", func() {
-			Expect(inputMapping).To(Equal(algorithm.InputMapping{
-				"some-input": algorithm.InputSource{
-					InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 1, FirstOccurrence: true},
+			Expect(inputMapping).To(Equal(db.InputMapping{
+				"some-input": db.InputResult{
+					Input: db.AlgorithmInput{
+						AlgorithmVersion: db.AlgorithmVersion{VersionID: 2, ResourceID: 1},
+						FirstOccurrence:  true,
+					},
 					PassedBuildIDs: []int{},
 				},
 			}))
@@ -234,9 +244,12 @@ var _ = Describe("Resolve", func() {
 		})
 
 		It("sets FirstOccurrence to true", func() {
-			Expect(inputMapping).To(Equal(algorithm.InputMapping{
-				"some-input": algorithm.InputSource{
-					InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 1, FirstOccurrence: true},
+			Expect(inputMapping).To(Equal(db.InputMapping{
+				"some-input": db.InputResult{
+					Input: db.AlgorithmInput{
+						AlgorithmVersion: db.AlgorithmVersion{VersionID: 2, ResourceID: 1},
+						FirstOccurrence:  true,
+					},
 					PassedBuildIDs: []int{},
 				},
 			}))
@@ -257,9 +270,12 @@ var _ = Describe("Resolve", func() {
 		})
 
 		It("sets FirstOccurrence to true", func() {
-			Expect(inputMapping).To(Equal(algorithm.InputMapping{
-				"some-input": algorithm.InputSource{
-					InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 1, FirstOccurrence: true},
+			Expect(inputMapping).To(Equal(db.InputMapping{
+				"some-input": db.InputResult{
+					Input: db.AlgorithmInput{
+						AlgorithmVersion: db.AlgorithmVersion{VersionID: 2, ResourceID: 1},
+						FirstOccurrence:  true,
+					},
 					PassedBuildIDs: []int{},
 				},
 			}))

@@ -8,7 +8,7 @@ import (
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/creds"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

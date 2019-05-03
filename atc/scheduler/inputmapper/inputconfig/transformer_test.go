@@ -4,8 +4,9 @@ import (
 	"errors"
 
 	"github.com/concourse/concourse/atc"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/db"
 	"github.com/concourse/concourse/atc/db/dbfakes"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/scheduler/inputmapper/inputconfig"
 
 	. "github.com/onsi/ginkgo"
@@ -57,7 +58,7 @@ var _ = Describe("Transformer", func() {
 						UseEveryVersion: false,
 						PinnedVersionID: 0,
 						ResourceID:      11,
-						Passed:          algorithm.JobSet{},
+						Passed:          db.JobSet{},
 						JobID:           1,
 					}))
 				})
@@ -79,7 +80,7 @@ var _ = Describe("Transformer", func() {
 						UseEveryVersion: false,
 						PinnedVersionID: 0,
 						ResourceID:      11,
-						Passed:          algorithm.JobSet{1: struct{}{}, 2: struct{}{}},
+						Passed:          db.JobSet{1: true, 2: true},
 						JobID:           1,
 					}))
 				})
@@ -100,7 +101,7 @@ var _ = Describe("Transformer", func() {
 						UseEveryVersion: true,
 						PinnedVersionID: 0,
 						ResourceID:      11,
-						Passed:          algorithm.JobSet{},
+						Passed:          db.JobSet{},
 						JobID:           1,
 					}))
 				})
@@ -143,7 +144,7 @@ var _ = Describe("Transformer", func() {
 							UseEveryVersion: false,
 							PinnedVersionID: 0,
 							ResourceID:      12,
-							Passed:          algorithm.JobSet{},
+							Passed:          db.JobSet{},
 							JobID:           1,
 						}))
 					})
@@ -187,7 +188,7 @@ var _ = Describe("Transformer", func() {
 								UseEveryVersion: false,
 								PinnedVersionID: 0,
 								ResourceID:      12,
-								Passed:          algorithm.JobSet{},
+								Passed:          db.JobSet{},
 								JobID:           1,
 							}))
 						})
@@ -205,7 +206,7 @@ var _ = Describe("Transformer", func() {
 									UseEveryVersion: false,
 									PinnedVersionID: 99,
 									ResourceID:      11,
-									Passed:          algorithm.JobSet{},
+									Passed:          db.JobSet{},
 									JobID:           1,
 								},
 								algorithm.InputConfig{
@@ -213,7 +214,7 @@ var _ = Describe("Transformer", func() {
 									UseEveryVersion: false,
 									PinnedVersionID: 0,
 									ResourceID:      12,
-									Passed:          algorithm.JobSet{},
+									Passed:          db.JobSet{},
 									JobID:           1,
 								},
 							))
@@ -241,7 +242,7 @@ var _ = Describe("Transformer", func() {
 					UseEveryVersion: false,
 					PinnedVersionID: 0,
 					ResourceID:      0,
-					Passed:          algorithm.JobSet{0: struct{}{}},
+					Passed:          db.JobSet{0: true},
 					JobID:           0,
 				}))
 			})

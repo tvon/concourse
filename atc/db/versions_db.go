@@ -1,4 +1,4 @@
-package algorithm
+package db
 
 import (
 	"database/sql"
@@ -7,19 +7,17 @@ import (
 	sq "github.com/Masterminds/squirrel"
 )
 
-var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
-
 type VersionsDB struct {
-	Runner sq.Runner
+	Conn Conn
 
 	JobIDs             map[string]int
 	ResourceIDs        map[string]int
 	DisabledVersionIDs map[int]bool
 }
 
-func (db VersionsDB) IsVersionFirstOccurrence(versionID int, jobID int, inputName string) (bool, error) {
+func (versions VersionsDB) IsVersionFirstOccurrence(versionID int, jobID int, inputName string) (bool, error) {
 	var exists bool
-	err := db.Runner.QueryRow(`
+	err := versions.Conn.QueryRow(`
 	  SELECT EXISTS (
 	    SELECT 1
 	    FROM build_resource_config_version_inputs i
@@ -39,12 +37,12 @@ func (db VersionsDB) IsVersionFirstOccurrence(versionID int, jobID int, inputNam
 	return !exists, nil
 }
 
-func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) {
+func (versions VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) {
 	var scopeID int
 	err := psql.Select("resource_config_scope_id").
 		From("resources").
 		Where(sq.Eq{"id": resourceID}).
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		QueryRow().
 		Scan(&scopeID)
 	if err != nil {
@@ -60,7 +58,7 @@ func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) 
 		Where(sq.Eq{"v.resource_config_scope_id": scopeID}).
 		Where(sq.Expr("v.version_md5 NOT IN (SELECT version_md5 FROM resource_disabled_versions WHERE resource_id = ?)", resourceID)).
 		OrderBy("check_order DESC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		QueryRow().
 		Scan(&versionID)
 	if err != nil {
@@ -73,7 +71,7 @@ func (db VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) 
 	return versionID, true, nil
 }
 
-func (db VersionsDB) SuccessfulBuilds(jobID int) ([]int, error) {
+func (versions VersionsDB) SuccessfulBuilds(jobID int) ([]int, error) {
 	var buildIDs []int
 	rows, err := psql.Select("b.id").
 		From("builds b").
@@ -82,7 +80,7 @@ func (db VersionsDB) SuccessfulBuilds(jobID int) ([]int, error) {
 			"b.status": "succeeded",
 		}).
 		OrderBy("b.id DESC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		Query()
 	if err != nil {
 		return nil, err
@@ -101,24 +99,24 @@ func (db VersionsDB) SuccessfulBuilds(jobID int) ([]int, error) {
 	return buildIDs, nil
 }
 
-func (db VersionsDB) BuildOutputs(buildID int) ([]LegacyResourceVersion, error) {
-	uniqOutputs := map[int]LegacyResourceVersion{}
+func (versions VersionsDB) BuildOutputs(buildID int) ([]AlgorithmVersion, error) {
+	uniqOutputs := map[int]AlgorithmVersion{}
 
-	rows, err := psql.Select("r.id", "v.id", "v.check_order").
+	rows, err := psql.Select("r.id", "v.id").
 		From("build_resource_config_version_inputs i").
 		Join("resources r ON r.id = i.resource_id").
 		Join("resource_config_versions v ON v.resource_config_scope_id = r.resource_config_scope_id AND v.version_md5 = i.version_md5").
 		Where(sq.Eq{"i.build_id": buildID}).
 		OrderBy("v.check_order ASC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		Query()
 	if err != nil {
 		return nil, err
 	}
 
 	for rows.Next() {
-		var output LegacyResourceVersion
-		err := rows.Scan(&output.ResourceID, &output.VersionID, &output.CheckOrder)
+		var output AlgorithmVersion
+		err := rows.Scan(&output.ResourceID, &output.VersionID)
 		if err != nil {
 			return nil, err
 		}
@@ -126,21 +124,21 @@ func (db VersionsDB) BuildOutputs(buildID int) ([]LegacyResourceVersion, error) 
 		uniqOutputs[output.ResourceID] = output
 	}
 
-	rows, err = psql.Select("r.id", "v.id", "v.check_order").
+	rows, err = psql.Select("r.id", "v.id").
 		From("build_resource_config_version_outputs o").
 		Join("resources r ON r.id = o.resource_id").
 		Join("resource_config_versions v ON v.resource_config_scope_id = r.resource_config_scope_id AND v.version_md5 = o.version_md5").
 		Where(sq.Eq{"o.build_id": buildID}).
 		OrderBy("v.check_order ASC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		Query()
 	if err != nil {
 		return nil, err
 	}
 
 	for rows.Next() {
-		var output LegacyResourceVersion
-		err := rows.Scan(&output.ResourceID, &output.VersionID, &output.CheckOrder)
+		var output AlgorithmVersion
+		err := rows.Scan(&output.ResourceID, &output.VersionID)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +146,7 @@ func (db VersionsDB) BuildOutputs(buildID int) ([]LegacyResourceVersion, error) 
 		uniqOutputs[output.ResourceID] = output
 	}
 
-	outputs := []LegacyResourceVersion{}
+	outputs := []AlgorithmVersion{}
 
 	for _, o := range uniqOutputs {
 		outputs = append(outputs, o)
@@ -157,13 +155,13 @@ func (db VersionsDB) BuildOutputs(buildID int) ([]LegacyResourceVersion, error) 
 	return outputs, nil
 }
 
-func (db VersionsDB) FindVersionOfResource(versionID int) (bool, error) {
+func (versions VersionsDB) FindVersionOfResource(versionID int) (bool, error) {
 	var exists bool
-	err := db.Runner.QueryRow(`SELECT EXISTS ( SELECT 1 from resource_config_versions WHERE id = $1 )`, versionID).Scan(&exists)
+	err := versions.Conn.QueryRow(`SELECT EXISTS ( SELECT 1 from resource_config_versions WHERE id = $1 )`, versionID).Scan(&exists)
 	return exists, err
 }
 
-func (db VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
+func (versions VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
 	var buildID int
 	err := psql.Select("b.id").
 		From("builds b").
@@ -173,7 +171,7 @@ func (db VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
 		}).
 		OrderBy("b.id DESC").
 		Limit(1).
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		QueryRow().
 		Scan(&buildID)
 	if err != nil {
@@ -186,9 +184,16 @@ func (db VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
 	return buildID, true, nil
 }
 
-func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, bool, error) {
+func (versions VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, bool, error) {
+	tx, err := versions.Conn.Begin()
+	if err != nil {
+		return 0, false, err
+	}
+
+	defer tx.Rollback()
+
 	var checkOrder int
-	err := psql.Select("rcv.check_order").
+	err = psql.Select("rcv.check_order").
 		From("resource_config_versions rcv, resources r, build_resource_config_version_inputs i").
 		Where(sq.Eq{
 			"i.build_id": buildID,
@@ -197,12 +202,12 @@ func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, bool, e
 		Where(sq.Expr("r.resource_config_scope_id = rcv.resource_config_scope_id")).
 		Where(sq.Expr("i.version_md5 = rcv.version_md5")).
 		Where(sq.Expr("i.resource_id = r.id")).
-		RunWith(db.Runner).
+		RunWith(tx).
 		QueryRow().
 		Scan(&checkOrder)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return db.LatestVersionOfResource(resourceID)
+			return versions.LatestVersionOfResource(resourceID)
 		}
 		return 0, false, err
 	}
@@ -214,39 +219,40 @@ func (db VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, bool, e
 		Where(sq.Gt{"rcv.check_order": checkOrder}).
 		OrderBy("rcv.check_order ASC").
 		Limit(1).
-		RunWith(db.Runner).
+		RunWith(tx).
 		QueryRow().
 		Scan(&nextVersionID)
-
-	if nextVersionID != 0 {
-		return nextVersionID, true, nil
-	}
-
-	if err != nil && err != sql.ErrNoRows {
-		return 0, false, err
-	}
-
-	err = psql.Select("rcv.id").
-		From("resource_config_versions rcv").
-		Where(sq.Expr("rcv.version_md5 NOT IN (SELECT version_md5 FROM resource_disabled_versions WHERE resource_id = ?)", resourceID)).
-		Where(sq.LtOrEq{"rcv.check_order": checkOrder}).
-		OrderBy("rcv.check_order DESC").
-		Limit(1).
-		RunWith(db.Runner).
-		QueryRow().
-		Scan(&nextVersionID)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, false, nil
+			err = psql.Select("rcv.id").
+				From("resource_config_versions rcv").
+				Where(sq.Expr("rcv.version_md5 NOT IN (SELECT version_md5 FROM resource_disabled_versions WHERE resource_id = ?)", resourceID)).
+				Where(sq.LtOrEq{"rcv.check_order": checkOrder}).
+				OrderBy("rcv.check_order DESC").
+				Limit(1).
+				RunWith(tx).
+				QueryRow().
+				Scan(&nextVersionID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return 0, false, nil
+				}
+				return 0, false, err
+			}
+		} else {
+			return 0, false, err
 		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
 		return 0, false, err
 	}
 
 	return nextVersionID, true, nil
 }
 
-func (db VersionsDB) LatestConstraintBuildID(buildID int, passedJobID int) (int, bool, error) {
+func (versions VersionsDB) LatestConstraintBuildID(buildID int, passedJobID int) (int, bool, error) {
 	var latestBuildID int
 
 	err := psql.Select("p.from_build_id").
@@ -256,7 +262,7 @@ func (db VersionsDB) LatestConstraintBuildID(buildID int, passedJobID int) (int,
 			"p.to_build_id": buildID,
 			"b.job_id":      passedJobID,
 		}).
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		QueryRow().
 		Scan(&latestBuildID)
 
@@ -271,7 +277,7 @@ func (db VersionsDB) LatestConstraintBuildID(buildID int, passedJobID int) (int,
 	return latestBuildID, true, nil
 }
 
-func (db VersionsDB) UnusedBuilds(buildID int, jobID int) ([]int, error) {
+func (versions VersionsDB) UnusedBuilds(buildID int, jobID int) ([]int, error) {
 	var buildIDs []int
 	rows, err := psql.Select("id").
 		From("builds").
@@ -280,7 +286,7 @@ func (db VersionsDB) UnusedBuilds(buildID int, jobID int) ([]int, error) {
 			sq.Eq{"job_id": jobID},
 		}).
 		OrderBy("id ASC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		Query()
 	if err != nil {
 		return nil, err
@@ -304,7 +310,7 @@ func (db VersionsDB) UnusedBuilds(buildID int, jobID int) ([]int, error) {
 			sq.Eq{"job_id": jobID},
 		}).
 		OrderBy("id DESC").
-		RunWith(db.Runner).
+		RunWith(versions.Conn).
 		Query()
 	if err != nil {
 		return nil, err
@@ -329,8 +335,10 @@ func (db VersionsDB) UnusedBuilds(buildID int, jobID int) ([]int, error) {
 // build pipe to the current job, then order them by the least number of
 // builds. If there are jobs with the same number of builds, order
 // alphabetically.
-func (db VersionsDB) OrderPassedJobs(currentJobID int, jobs JobSet) ([]int, error) {
-	latestBuildID, found, err := db.LatestBuildID(currentJobID)
+
+//TODO: turn this into a single query
+func (versions VersionsDB) OrderPassedJobs(currentJobID int, jobs JobSet) ([]int, error) {
+	latestBuildID, found, err := versions.LatestBuildID(currentJobID)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +350,7 @@ func (db VersionsDB) OrderPassedJobs(currentJobID int, jobs JobSet) ([]int, erro
 			From("builds b").
 			Join("build_pipes bp ON bp.from_build_id = b.id").
 			Where(sq.Eq{"bp.to_build_id": latestBuildID}).
-			RunWith(db.Runner).
+			RunWith(versions.Conn).
 			Query()
 		if err != nil {
 			return nil, err
@@ -366,7 +374,7 @@ func (db VersionsDB) OrderPassedJobs(currentJobID int, jobs JobSet) ([]int, erro
 		err := psql.Select("COUNT(id)").
 			From("builds").
 			Where(sq.Eq{"job_id": job}).
-			RunWith(db.Runner).
+			RunWith(versions.Conn).
 			QueryRow().
 			Scan(&buildNum)
 		if err != nil {

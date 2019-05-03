@@ -6,7 +6,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/scheduler/inputmapper"
 )
 
@@ -26,16 +26,15 @@ func (s *Scheduler) Schedule(
 	jobSchedulingTime := map[string]time.Duration{}
 
 	jStart := time.Now()
+	inputMapping, err := s.InputMapper.SaveNextInputMapping(logger, versions, job, resources)
+	if err != nil {
+		return err
+	}
+
 	err := s.ensurePendingBuildExists(logger, versions, job, resources)
 	jobSchedulingTime[job.Name()] = time.Since(jStart)
 
 	if err != nil {
-		return jobSchedulingTime, err
-	}
-
-	nextPendingBuilds, err := job.GetPendingBuilds()
-	if err != nil {
-		logger.Error("failed-to-get-all-next-pending-builds", err)
 		return jobSchedulingTime, err
 	}
 
@@ -55,9 +54,16 @@ func (s *Scheduler) ensurePendingBuildExists(
 	job db.Job,
 	resources db.Resources,
 ) error {
-	inputMapping, err := s.InputMapper.SaveNextInputMapping(logger, versions, job, resources)
+	inputMapping, found, err := job.GetFullNextBuildInputs()
 	if err != nil {
+		logger.Error("failed-to-fetch-next-build-inputs", err)
 		return err
+	}
+
+	if !found {
+		// XXX: better info log pls
+		logger.Info("next-build-inputs-not-found")
+		return nil
 	}
 
 	for _, inputConfig := range job.Config().Inputs() {

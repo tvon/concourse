@@ -58,6 +58,12 @@ func (s *buildStarter) TryStartPendingBuildsForJob(
 	resourceTypes atc.VersionedResourceTypes,
 	nextPendingBuildsForJob []db.Build,
 ) error {
+	nextPendingBuilds, err := job.GetPendingBuilds()
+	if err != nil {
+		logger.Error("failed-to-get-all-next-pending-builds", err)
+		return jobSchedulingTime, err
+	}
+
 	for _, nextPendingBuild := range nextPendingBuildsForJob {
 		started, err := s.tryStartNextPendingBuild(logger, nextPendingBuild, job, resources, resourceTypes)
 		if err != nil {

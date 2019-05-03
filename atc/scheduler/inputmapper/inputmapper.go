@@ -4,7 +4,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/scheduler/inputmapper/inputconfig"
 )
 
@@ -33,7 +33,7 @@ func (i *inputMapper) SaveNextInputMapping(
 	versions *algorithm.VersionsDB,
 	job db.Job,
 	resources db.Resources,
-) (algorithm.InputMapping, error) {
+) error {
 	logger = logger.Session("save-next-input-mapping")
 
 	inputConfigs := job.Config().Inputs()
@@ -54,74 +54,20 @@ func (i *inputMapper) SaveNextInputMapping(
 	algorithmInputConfigs, err := i.transformer.TransformInputConfigs(versions, job.Name(), inputConfigs)
 	if err != nil {
 		logger.Error("failed-to-get-algorithm-input-configs", err)
-		return nil, err
+		return err
 	}
 
-	independentMapping := algorithm.InputMapping{}
-	for _, inputConfig := range algorithmInputConfigs {
-		singletonMapping, ok, err := algorithm.InputConfigs{inputConfig}.Resolve(versions)
-		if err != nil {
-			logger.Error("failed-to-resolve-independent-inputs", err)
-			return nil, err
-		}
-
-		if ok {
-			independentMapping[inputConfig.Name] = singletonMapping[inputConfig.Name]
-		}
-	}
-
-	err = job.SaveIndependentInputMapping(independentMapping)
-	if err != nil {
-		logger.Error("failed-to-save-independent-input-mapping", err)
-		return nil, err
-	}
-
-	if len(independentMapping) < len(inputConfigs) {
-		// this is necessary to prevent builds from running with missing pinned versions
-		err := job.DeleteNextInputMapping()
-		if err != nil {
-			logger.Error("failed-to-delete-next-input-mapping-after-missing-pending", err)
-		}
-
-		err = job.DeleteNextBuildPipes()
-		if err != nil {
-			logger.Error("failed-to-delete-next-build-pipes-after-failed-resolve", err)
-		}
-
-		return nil, err
-	}
-
-	resolvedMapping, ok, err := algorithmInputConfigs.Resolve(versions)
+	mapping, ok, err = algorithmInputConfigs.ComputeNextInputs(versions)
 	if err != nil {
 		logger.Error("failed-to-resolve-inputs", err)
-		return nil, err
+		return err
 	}
 
-	if !ok {
-		err := job.DeleteNextInputMapping()
-		if err != nil {
-			logger.Error("failed-to-delete-next-input-mapping-after-failed-resolve", err)
-		}
-
-		err = job.DeleteNextBuildPipes()
-		if err != nil {
-			logger.Error("failed-to-delete-next-build-pipes-after-failed-resolve", err)
-		}
-
-		return nil, err
-	}
-
-	err = job.SaveNextInputMapping(resolvedMapping)
+	err = job.SaveNextInputMapping(mapping, ok)
 	if err != nil {
 		logger.Error("failed-to-save-next-input-mapping", err)
-		return nil, err
+		return err
 	}
 
-	err = job.SaveNextBuildPipes(resolvedMapping)
-	if err != nil {
-		logger.Error("failed-to-save-next-input-mapping", err)
-		return nil, err
-	}
-
-	return resolvedMapping, nil
+	return nil
 }

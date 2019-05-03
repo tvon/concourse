@@ -9,7 +9,8 @@ import (
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/db"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/lib/pq"
 	. "github.com/onsi/gomega"
 )
@@ -58,6 +59,7 @@ type Version struct {
 type Result struct {
 	OK     bool
 	Values map[string]string
+	Errors map[string]string
 }
 
 type StringMapping map[string]int
@@ -82,11 +84,40 @@ func (mapping StringMapping) Name(id int) string {
 	panic(fmt.Sprintf("no name found for %d", id))
 }
 
+type LegacyVersionsDB struct {
+	ResourceVersions []LegacyResourceVersion
+	BuildOutputs     []LegacyBuildOutput
+	BuildInputs      []LegacyBuildInput
+	JobIDs           map[string]int
+	ResourceIDs      map[string]int
+}
+
+type LegacyResourceVersion struct {
+	VersionID  int
+	ResourceID int
+	CheckOrder int
+	Disabled   bool
+}
+
+type LegacyBuildOutput struct {
+	LegacyResourceVersion
+	BuildID int
+	JobID   int
+}
+
+type LegacyBuildInput struct {
+	LegacyResourceVersion
+	BuildID         int
+	JobID           int
+	InputName       string
+	FirstOccurrence bool
+}
+
 const CurrentJobName = "current"
 
 func (example Example) Run() {
-	db := &algorithm.VersionsDB{
-		Runner:             dbConn,
+	versionsDB := &db.VersionsDB{
+		Conn:               dbConn,
 		DisabledVersionIDs: map[int]bool{},
 	}
 
@@ -109,7 +140,7 @@ func (example Example) Run() {
 		Expect(err).ToNot(HaveOccurred())
 
 		log.Println("LOADING DB", example.LoadDB)
-		var legacyDB algorithm.LegacyVersionsDB
+		var legacyDB LegacyVersionsDB
 		err = json.NewDecoder(gr).Decode(&legacyDB)
 		Expect(err).ToNot(HaveOccurred())
 		log.Println("LOADED")
@@ -281,9 +312,9 @@ func (example Example) Run() {
 
 	inputConfigs := make(algorithm.InputConfigs, len(example.Inputs))
 	for i, input := range example.Inputs {
-		passed := algorithm.JobSet{}
+		passed := db.JobSet{}
 		for _, jobName := range input.Passed {
-			passed[setup.jobIDs.ID(jobName)] = struct{}{}
+			passed[setup.jobIDs.ID(jobName)] = true
 		}
 
 		var versionID int
@@ -317,18 +348,29 @@ func (example Example) Run() {
 		err = rows.Scan(&versionID)
 		Expect(err).ToNot(HaveOccurred())
 
-		db.DisabledVersionIDs[versionID] = true
+		versionsDB.DisabledVersionIDs[versionID] = true
 	}
 
-	resolved, ok, err := inputConfigs.Resolve(db)
+	resolved, ok, err := inputConfigs.ComputeNextInputs(versionsDB)
 	Expect(err).ToNot(HaveOccurred())
 
 	prettyValues := map[string]string{}
+	erroredValues := map[string]string{}
 	for name, inputSource := range resolved {
-		prettyValues[name] = setup.versionIDs.Name(inputSource.InputVersion.VersionID)
+		if inputSource.ResolveError != nil {
+			erroredValues[name] = inputSource.ResolveError.Error()
+		} else {
+			fmt.Println("================", inputSource.Input)
+			prettyValues[name] = setup.versionIDs.Name(inputSource.Input.AlgorithmVersion.VersionID)
+		}
 	}
 
-	actualResult := Result{OK: ok, Values: prettyValues}
+	actualResult := Result{OK: ok}
+	if len(erroredValues) != 0 {
+		actualResult.Errors = erroredValues
+	}
+
+	actualResult.Values = prettyValues
 
 	Expect(actualResult).To(Equal(example.Result))
 }

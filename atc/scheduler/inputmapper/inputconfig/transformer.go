@@ -3,7 +3,7 @@ package inputconfig
 import (
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/db/algorithm"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 )
 
 //go:generate counterfeiter . Transformer
@@ -55,9 +55,9 @@ func (i *transformer) TransformInputConfigs(db *algorithm.VersionsDB, jobName st
 			pinnedVersionID = id
 		}
 
-		jobs := algorithm.JobSet{}
+		jobs := db.JobSet{}
 		for _, passedJobName := range input.Passed {
-			jobs[db.JobIDs[passedJobName]] = struct{}{}
+			jobs[db.JobIDs[passedJobName]] = true
 		}
 
 		inputConfigs = append(inputConfigs, algorithm.InputConfig{
