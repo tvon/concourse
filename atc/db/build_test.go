@@ -9,7 +9,6 @@ import (
 	"github.com/concourse/concourse/atc/creds"
 	"github.com/concourse/concourse/atc/db"
 	"github.com/concourse/concourse/atc/event"
-	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -743,12 +742,17 @@ var _ = Describe("Build", func() {
 					Expect(found).To(BeTrue())
 					Expect(err).NotTo(HaveOccurred())
 
-					err = job.SaveNextInputMapping(algorithm.InputMapping{
-						"some-input": algorithm.InputSource{
-							InputVersion:   algorithm.InputVersion{VersionID: rcv.ID(), ResourceID: resource.ID(), FirstOccurrence: true},
+					err = job.SaveNextInputMapping(db.InputMapping{
+						"some-input": db.InputResult{
+							Input: db.AlgorithmInput{
+								AlgorithmVersion: db.AlgorithmVersion{
+									VersionID: rcv.ID(), ResourceID: resource.ID(),
+								},
+								FirstOccurrence: true,
+							},
 							PassedBuildIDs: []int{},
 						},
-					})
+					}, true)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedBuildPrep.Inputs = map[string]db.BuildPreparationStatus{
@@ -939,12 +943,15 @@ var _ = Describe("Build", func() {
 					Expect(found).To(BeTrue())
 					Expect(versions).To(HaveLen(1))
 
-					err = job.SaveIndependentInputMapping(algorithm.InputMapping{
-						"input1": algorithm.InputSource{
-							InputVersion:   algorithm.InputVersion{VersionID: versions[0].ID, ResourceID: resource1.ID(), FirstOccurrence: true},
+					err = job.SaveNextInputMapping(db.InputMapping{
+						"input1": db.InputResult{
+							Input: db.AlgorithmInput{
+								AlgorithmVersion: db.AlgorithmVersion{VersionID: versions[0].ID, ResourceID: resource1.ID()},
+								FirstOccurrence:  true,
+							},
 							PassedBuildIDs: []int{},
 						},
-					})
+					}, false)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedBuildPrep.Inputs = map[string]db.BuildPreparationStatus{

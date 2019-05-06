@@ -16,11 +16,11 @@ var _ = Describe("Versions DB", func() {
 			jobIDs             []int
 			currentJob         db.Job
 			orderedJobs        []int
-			currentJob         int
-			passedJobs         algorithm.JobSet
+			passedJobs         db.JobSet
 		)
 
 		BeforeEach(func() {
+			var err error
 			passedJobsPipeline, _, err = defaultTeam.SavePipeline("passed-jobs-pipeline", atc.Config{
 				Jobs: atc.JobConfigs{
 					{
@@ -45,6 +45,7 @@ var _ = Describe("Versions DB", func() {
 			}, db.ConfigVersion(0), db.PipelineUnpaused)
 			Expect(err).NotTo(HaveOccurred())
 
+			var found bool
 			currentJob, found, err = passedJobsPipeline.Job("current-job")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
@@ -52,7 +53,7 @@ var _ = Describe("Versions DB", func() {
 
 		JustBeforeEach(func() {
 			versionsDB = &db.VersionsDB{
-				Runner: dbConn,
+				Conn:   dbConn,
 				JobIDs: jobIDs,
 			}
 

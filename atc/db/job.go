@@ -782,7 +782,7 @@ func (j *job) finishedBuild() (Build, error) {
 }
 
 func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
-	rows, err := psql.Select("i.input_name, i.first_occurrence, i.resource_id, v.version").
+	rows, err := psql.Select("i.input_name, i.first_occurrence, i.resource_id, v.version, i.resolve_error").
 		From("next_build_inputs i").
 		Join("jobs j ON i.job_id = j.id").
 		Join("resource_config_versions v ON v.id = i.resource_config_version_id").
@@ -804,9 +804,10 @@ func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
 			versionBlob     string
 			version         atc.Version
 			resourceID      int
+			resolveErr      sql.NullString
 		)
 
-		err := rows.Scan(&inputName, &firstOccurrence, &resourceID, &versionBlob)
+		err := rows.Scan(&inputName, &firstOccurrence, &resourceID, &versionBlob, &resolveErr)
 		if err != nil {
 			return nil, err
 		}
@@ -814,6 +815,11 @@ func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
 		err = json.Unmarshal([]byte(versionBlob), &version)
 		if err != nil {
 			return nil, err
+		}
+
+		var resolveError error
+		if resolveErr.Valid {
+
 		}
 
 		buildInputs = append(buildInputs, BuildInput{
