@@ -1962,7 +1962,7 @@ var _ = Describe("Team", func() {
 			Expect(found).To(BeFalse())
 		})
 
-		It("removes worker task caches for jobs that are no longer in pipeline", func() {
+		It("removes task caches for jobs that are no longer in pipeline", func() {
 			pipeline, _, err := team.SavePipeline(pipelineName, config, 0, db.PipelineNoChange)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1970,10 +1970,10 @@ var _ = Describe("Team", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			_, err = workerTaskCacheFactory.FindOrCreate(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, err = taskCacheFactory.FindOrCreate(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 
-			_, found, err = workerTaskCacheFactory.Find(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
@@ -1982,12 +1982,12 @@ var _ = Describe("Team", func() {
 			_, _, err = team.SavePipeline(pipelineName, config, pipeline.ConfigVersion(), db.PipelineNoChange)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, found, err = workerTaskCacheFactory.Find(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeFalse())
 		})
 
-		It("removes worker task caches for tasks that are no longer exist", func() {
+		It("removes task caches for tasks that are no longer exist", func() {
 			pipeline, _, err := team.SavePipeline(pipelineName, config, 0, db.PipelineNoChange)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1995,10 +1995,10 @@ var _ = Describe("Team", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			_, err = workerTaskCacheFactory.FindOrCreate(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, err = taskCacheFactory.FindOrCreate(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 
-			_, found, err = workerTaskCacheFactory.Find(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
@@ -2017,9 +2017,62 @@ var _ = Describe("Team", func() {
 			_, _, err = team.SavePipeline(pipelineName, config, pipeline.ConfigVersion(), db.PipelineNoChange)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, found, err = workerTaskCacheFactory.Find(job.ID(), "some-task", "some-path", defaultWorker.Name())
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeFalse())
+		})
+
+		It("should not remove task caches in other pipeline", func() {
+			pipeline, _, err := team.SavePipeline(pipelineName, config, 0, db.PipelineNoChange)
+			Expect(err).ToNot(HaveOccurred())
+
+			otherPipeline, _, err := team.SavePipeline("other-pipeline", config, 0, db.PipelineNoChange)
+			Expect(err).ToNot(HaveOccurred())
+
+			job, found, err := pipeline.Job("some-job")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+
+			_, err = taskCacheFactory.FindOrCreate(job.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+
+			otherJob, found, err := otherPipeline.Job("some-job")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+
+			_, err = taskCacheFactory.FindOrCreate(otherJob.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, found, err = taskCacheFactory.Find(otherJob.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+
+			config.Jobs = []atc.JobConfig{
+				{
+					Name: "some-job",
+					Plan: atc.PlanSequence{
+						{
+							Task:           "some-other-task",
+							TaskConfigPath: "some/config/path.yml",
+						},
+					},
+				},
+			}
+
+			_, _, err = team.SavePipeline(pipelineName, config, pipeline.ConfigVersion(), db.PipelineNoChange)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, found, err = taskCacheFactory.Find(job.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeFalse())
+
+			_, found, err = taskCacheFactory.Find(otherJob.ID(), "some-task", "some-path")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
 		})
 
 		It("creates all of the serial groups from the jobs in the database", func() {

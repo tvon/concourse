@@ -161,7 +161,7 @@ type RunCommand struct {
 		EnablePipelineAuditLog  bool `long:"enable-pipeline-auditing" description:"Enable auditing for all api requests connected to pipelines."`
 		EnableResourceAuditLog  bool `long:"enable-resource-auditing" description:"Enable auditing for all api requests connected to resources."`
 		EnableSystemAuditLog    bool `long:"enable-system-auditing" description:"Enable auditing for all api requests connected to system transactions."`
-		EnableTeamAuditLog    bool `long:"enable-team-auditing" description:"Enable auditing for all api requests connected to teams."`
+		EnableTeamAuditLog      bool `long:"enable-team-auditing" description:"Enable auditing for all api requests connected to teams."`
 		EnableWorkerAuditLog    bool `long:"enable-worker-auditing" description:"Enable auditing for all api requests connected to workers."`
 		EnableVolumeAuditLog    bool `long:"enable-volume-auditing" description:"Enable auditing for all api requests connected to volumes."`
 	}
@@ -528,6 +528,7 @@ func (cmd *RunCommand) constructAPIMembers(
 
 	dbWorkerBaseResourceTypeFactory := db.NewWorkerBaseResourceTypeFactory(dbConn)
 	dbWorkerTaskCacheFactory := db.NewWorkerTaskCacheFactory(dbConn)
+	dbTaskCacheFactory := db.NewTaskCacheFactory(dbConn)
 	dbVolumeRepository := db.NewVolumeRepository(dbConn)
 	dbWorkerFactory := db.NewWorkerFactory(dbConn)
 	workerVersion, err := workerVersion()
@@ -542,6 +543,7 @@ func (cmd *RunCommand) constructAPIMembers(
 		dbResourceCacheFactory,
 		dbResourceConfigFactory,
 		dbWorkerBaseResourceTypeFactory,
+		dbTaskCacheFactory,
 		dbWorkerTaskCacheFactory,
 		dbVolumeRepository,
 		teamFactory,
@@ -704,6 +706,7 @@ func (cmd *RunCommand) constructBackendMembers(
 	)
 
 	dbWorkerBaseResourceTypeFactory := db.NewWorkerBaseResourceTypeFactory(dbConn)
+	dbTaskCacheFactory := db.NewTaskCacheFactory(dbConn)
 	dbWorkerTaskCacheFactory := db.NewWorkerTaskCacheFactory(dbConn)
 	dbVolumeRepository := db.NewVolumeRepository(dbConn)
 	dbWorkerFactory := db.NewWorkerFactory(dbConn)
@@ -719,6 +722,7 @@ func (cmd *RunCommand) constructBackendMembers(
 		dbResourceCacheFactory,
 		dbResourceConfigFactory,
 		dbWorkerBaseResourceTypeFactory,
+		dbTaskCacheFactory,
 		dbWorkerTaskCacheFactory,
 		dbVolumeRepository,
 		teamFactory,
