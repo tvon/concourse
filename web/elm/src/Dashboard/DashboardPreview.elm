@@ -12,15 +12,9 @@ import TopologicalSort exposing (flattenToLayers)
 view : List Concourse.Job -> Html msg
 view jobs =
     let
-        jobDependencies : Concourse.Job -> List Concourse.Job
-        jobDependencies job =
-            job.inputs
-                |> List.concatMap .passed
-                |> List.filterMap (\name -> find (\j -> j.name == name) jobs)
-
         layers : List (List Concourse.Job)
         layers =
-            flattenToLayers (List.map (\j -> ( j, jobDependencies j )) jobs)
+            flattenToLayers (List.map (\j -> ( j, jobDependencies jobs j )) jobs)
 
         width : Int
         width =
@@ -86,3 +80,76 @@ viewJob job =
         , attribute "data-tooltip" job.name
         ]
         [ Html.a [ href <| Routes.toString buildRoute ] [ Html.text "" ] ]
+
+
+type alias Node =
+    { depth : Int
+    , job : Concourse.Job
+    }
+
+
+layers : List Concourse.Job -> List (List Concourse.Job)
+layers js =
+    let
+        nodes =
+            List.map jobs (Job 0)
+
+        forwardNodes =
+            nodes |> List.filter (.job >> .inputs >> List.all (.passed >> List.isEmpty))
+    in
+    walkforward_ nodes forwardNodes []
+    -- TODO the backwards
+
+
+walkforward_ : List Node -> List Node -> List Node -> ( List Node, List Node, List Node )
+walkforward_ all forward backward =
+    List.foldr
+        (\fn ( a, f, b ) ->
+            let
+                ( na, nf, nb ) =
+                    walkforward__ a fn
+            in
+            ( na, nf, backward ++ nb )
+        )
+        ( all, forward, backward )
+
+
+walkforward__ : List Node -> Node -> ( List Node, List Node, List Node )
+walkforward__ all current =
+    let
+        allJobs =
+            List.map .job all
+
+        outEdges =
+            dependedOn allJobs current.job
+    in
+    case outEdges of
+        [] ->
+            ( all, [], [ current ] )
+
+        es ->
+            let
+                newAll =
+                    List.foldr
+                        (\nextNode ->
+                            List.Extra.updateIf
+                                ((==) nextNode)
+                                (\n -> { n | rank = max n.rank current.rank })
+                        )
+                        all
+                        es
+            in
+            ( newAll, es, [] )
+
+
+dependedOn : List Concourse.Job -> Concourse.Job -> List Concourse.Job
+dependedOn allJobs job =
+    allJobs
+        |> List.filter (.inputs >> List.any (.passed >> List.member job.name))
+
+
+jobDependencies : List Concourse.Job -> Concourse.Job -> List Concourse.Job
+jobDependencies jobs job =
+    job.inputs
+        |> List.concatMap .passed
+        |> List.filterMap (\name -> find (\j -> j.name == name) jobs)
