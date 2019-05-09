@@ -3,7 +3,9 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/lager"
@@ -695,26 +697,28 @@ func (j *job) SaveNextInputMapping(inputMapping InputMapping, inputsDetermined b
 	}
 
 	_, err = psql.Delete("next_build_inputs").
-		Where(sq.Eq{"to_job_id": j.id}).
+		Where(sq.Eq{"job_id": j.id}).
 		RunWith(tx).Exec()
 	if err != nil {
 		return err
 	}
 
 	builder := psql.Insert("next_build_inputs").
-		Columns("input_name", "resource_config_version_id", "resource_id", "first_occurrence", "resolve_error")
+		Columns("input_name", "job_id", "resource_config_version_id", "resource_id", "first_occurrence", "resolve_error")
 
 	for inputName, inputResult := range inputMapping {
 		if inputResult.ResolveError != nil {
-			builder.Values(inputName, nil, nil, nil, inputResult.ResolveError)
+			builder = builder.Values(inputName, j.id, nil, nil, nil, inputResult.ResolveError.Error())
 		} else {
-			builder.Values(inputName, inputResult.Input.VersionID, inputResult.Input.ResourceID, inputResult.Input.FirstOccurrence, nil)
+			builder = builder.Values(inputName, j.id, inputResult.Input.VersionID, inputResult.Input.ResourceID, inputResult.Input.FirstOccurrence, nil)
 		}
 	}
 
-	_, err = builder.RunWith(tx).Exec()
-	if err != nil {
-		return err
+	if len(inputMapping) != 0 {
+		_, err = builder.RunWith(tx).Exec()
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = psql.Delete("next_build_pipes").
@@ -727,15 +731,19 @@ func (j *job) SaveNextInputMapping(inputMapping InputMapping, inputsDetermined b
 	pipesBuilder := psql.Insert("next_build_pipes").
 		Columns("to_job_id", "from_build_id")
 
+	insertPipes := false
 	for _, inputVersion := range inputMapping {
 		for _, buildID := range inputVersion.PassedBuildIDs {
-			pipesBuilder.Values(j.ID(), buildID)
+			pipesBuilder = pipesBuilder.Values(j.ID(), buildID)
+			insertPipes = true
 		}
 	}
 
-	_, err = pipesBuilder.RunWith(tx).Exec()
-	if err != nil {
-		return err
+	if insertPipes {
+		_, err = pipesBuilder.RunWith(tx).Exec()
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -785,7 +793,7 @@ func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
 	rows, err := psql.Select("i.input_name, i.first_occurrence, i.resource_id, v.version, i.resolve_error").
 		From("next_build_inputs i").
 		Join("jobs j ON i.job_id = j.id").
-		Join("resource_config_versions v ON v.id = i.resource_config_version_id").
+		LeftJoin("resource_config_versions v ON v.id = i.resource_config_version_id").
 		Where(sq.Eq{
 			"j.name":        j.name,
 			"j.pipeline_id": j.pipelineID,
@@ -799,27 +807,42 @@ func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
 	buildInputs := []BuildInput{}
 	for rows.Next() {
 		var (
-			inputName       string
-			firstOccurrence bool
-			versionBlob     string
-			version         atc.Version
-			resourceID      int
-			resolveErr      sql.NullString
+			inputName   string
+			firstOcc    sql.NullBool
+			versionBlob sql.NullString
+			resID       sql.NullString
+			resolveErr  sql.NullString
 		)
 
-		err := rows.Scan(&inputName, &firstOccurrence, &resourceID, &versionBlob, &resolveErr)
+		err := rows.Scan(&inputName, &firstOcc, &resID, &versionBlob, &resolveErr)
 		if err != nil {
 			return nil, err
 		}
 
-		err = json.Unmarshal([]byte(versionBlob), &version)
-		if err != nil {
-			return nil, err
+		var version atc.Version
+		if versionBlob.Valid {
+			err = json.Unmarshal([]byte(versionBlob.String), &version)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var firstOccurrence bool
+		if firstOcc.Valid {
+			firstOccurrence = firstOcc.Bool
+		}
+
+		var resourceID int
+		if resID.Valid {
+			resourceID, err = strconv.Atoi(resID.String)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		var resolveError error
 		if resolveErr.Valid {
-
+			resolveError = errors.New(resolveErr.String)
 		}
 
 		buildInputs = append(buildInputs, BuildInput{
@@ -827,6 +850,7 @@ func (j *job) getNextBuildInputs(tx Tx) ([]BuildInput, error) {
 			ResourceID:      resourceID,
 			Version:         version,
 			FirstOccurrence: firstOccurrence,
+			ResolveError:    resolveError,
 		})
 	}
 

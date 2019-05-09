@@ -2,9 +2,11 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"sort"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/concourse/concourse/atc"
 )
 
 type VersionsDB struct {
@@ -38,33 +40,24 @@ func (versions VersionsDB) IsVersionFirstOccurrence(versionID int, jobID int, in
 }
 
 func (versions VersionsDB) LatestVersionOfResource(resourceID int) (int, bool, error) {
-	var scopeID int
-	err := psql.Select("resource_config_scope_id").
-		From("resources").
-		Where(sq.Eq{"id": resourceID}).
-		RunWith(versions.Conn).
-		QueryRow().
-		Scan(&scopeID)
+	tx, err := versions.Conn.Begin()
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, false, nil
-		}
 		return 0, false, err
 	}
 
-	var versionID int
-	err = psql.Select("v.id").
-		From("resource_config_versions v").
-		Where(sq.Eq{"v.resource_config_scope_id": scopeID}).
-		Where(sq.Expr("v.version_md5 NOT IN (SELECT version_md5 FROM resource_disabled_versions WHERE resource_id = ?)", resourceID)).
-		OrderBy("check_order DESC").
-		RunWith(versions.Conn).
-		QueryRow().
-		Scan(&versionID)
+	defer tx.Rollback()
+
+	versionID, found, err := versions.latestVersionOfResource(tx, resourceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, false, nil
-		}
+		return 0, false, err
+	}
+
+	if !found {
+		return 0, false, nil
+	}
+
+	err = tx.Commit()
+	if err != nil {
 		return 0, false, err
 	}
 
@@ -155,10 +148,31 @@ func (versions VersionsDB) BuildOutputs(buildID int) ([]AlgorithmVersion, error)
 	return outputs, nil
 }
 
-func (versions VersionsDB) FindVersionOfResource(versionID int) (bool, error) {
-	var exists bool
-	err := versions.Conn.QueryRow(`SELECT EXISTS ( SELECT 1 from resource_config_versions WHERE id = $1 )`, versionID).Scan(&exists)
-	return exists, err
+func (versions VersionsDB) FindVersionOfResource(resourceID int, version atc.Version) (int, bool, error) {
+	versionJSON, err := json.Marshal(version)
+	if err != nil {
+		return 0, false, nil
+	}
+
+	var id int
+	err = psql.Select("id").
+		From("resource_config_versions rcv").
+		Join("resources r ON r.resource_config_scope_id = rcv.resource_config_scope_id").
+		Where(sq.Eq{
+			"r.id": resourceID,
+		}).
+		Where(sq.Expr("v.version_md5 = md5(?)", versionJSON)).
+		RunWith(versions.Conn).
+		QueryRow().
+		Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+
+	return id, true, err
 }
 
 func (versions VersionsDB) LatestBuildID(jobID int) (int, bool, error) {
@@ -207,7 +221,21 @@ func (versions VersionsDB) NextEveryVersion(buildID int, resourceID int) (int, b
 		Scan(&checkOrder)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return versions.LatestVersionOfResource(resourceID)
+			versionID, found, err := versions.latestVersionOfResource(tx, resourceID)
+			if err != nil {
+				return 0, false, err
+			}
+
+			if !found {
+				return 0, false, nil
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				return 0, false, err
+			}
+
+			return versionID, true, nil
 		}
 		return 0, false, err
 	}
@@ -411,4 +439,38 @@ func (versions VersionsDB) OrderPassedJobs(currentJobID int, jobs JobSet) ([]int
 	}
 
 	return orderedJobs, nil
+}
+
+func (versions VersionsDB) latestVersionOfResource(tx Tx, resourceID int) (int, bool, error) {
+	var scopeID int
+	err := psql.Select("resource_config_scope_id").
+		From("resources").
+		Where(sq.Eq{"id": resourceID}).
+		RunWith(tx).
+		QueryRow().
+		Scan(&scopeID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+
+	var versionID int
+	err = psql.Select("v.id").
+		From("resource_config_versions v").
+		Where(sq.Eq{"v.resource_config_scope_id": scopeID}).
+		Where(sq.Expr("v.version_md5 NOT IN (SELECT version_md5 FROM resource_disabled_versions WHERE resource_id = ?)", resourceID)).
+		OrderBy("check_order DESC").
+		RunWith(tx).
+		QueryRow().
+		Scan(&versionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+
+	return versionID, true, nil
 }

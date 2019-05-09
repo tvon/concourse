@@ -1,46 +1,57 @@
 package inputconfig
 
 import (
+	"errors"
+
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
 	"github.com/concourse/concourse/atc/scheduler/algorithm"
 )
 
+//go:generate counterfeiter . InputConfigs
+
+type InputConfigs interface {
+	ComputeNextInputs(versionsDB *db.VersionsDB) (db.InputMapping, bool, error)
+}
+
 //go:generate counterfeiter . Transformer
 
 type Transformer interface {
-	TransformInputConfigs(db *algorithm.VersionsDB, jobName string, inputs []atc.JobInput) (InputConfigs, error)
+	Transform(db *db.VersionsDB, job db.Job, resources db.Resources) (db.InputMapping, bool, error)
 }
 
-type InputConfigs interface {
-	Resolve(db *algorithm.VersionsDB) (algorithm.InputMapping, bool, error)
+func NewTransformer() Transformer {
+	return &transformer{}
 }
 
-func NewTransformer(pipeline db.Pipeline) Transformer {
-	return &transformer{pipeline: pipeline}
-}
+type transformer struct{}
 
-type transformer struct {
-	pipeline db.Pipeline
-}
+func (i *transformer) Transform(
+	versions *db.VersionsDB,
+	job db.Job,
+	resources db.Resources,
+) (db.InputMapping, bool, error) {
 
-func (i *transformer) TransformInputConfigs(db *algorithm.VersionsDB, jobName string, inputs []atc.JobInput) (InputConfigs, error) {
+	inputs := job.Config().Inputs()
+
 	inputConfigs := algorithm.InputConfigs{}
-
-	for _, input := range inputs {
+	for i, input := range inputs {
 		if input.Version == nil {
 			input.Version = &atc.VersionConfig{Latest: true}
 		}
 
 		pinnedVersionID := 0
 		if input.Version.Pinned != nil {
-			resource, found, err := i.pipeline.Resource(input.Resource)
-			if err != nil {
-				return nil, err
-			}
+			resource, found := resources.Lookup(input.Resource)
 
 			if !found {
 				continue
+			}
+
+			if input.Version != nil && input.Version.Pinned == nil {
+				if resource.CurrentPinnedVersion() != nil {
+					inputs[i].Version = &atc.VersionConfig{Pinned: resource.CurrentPinnedVersion()}
+				}
 			}
 
 			id, found, err := resource.ResourceConfigVersionID(input.Version.Pinned)
@@ -57,18 +68,57 @@ func (i *transformer) TransformInputConfigs(db *algorithm.VersionsDB, jobName st
 
 		jobs := db.JobSet{}
 		for _, passedJobName := range input.Passed {
-			jobs[db.JobIDs[passedJobName]] = true
+			jobs[versions.JobIDs[passedJobName]] = true
 		}
 
 		inputConfigs = append(inputConfigs, algorithm.InputConfig{
 			Name:            input.Name,
 			UseEveryVersion: input.Version.Every,
 			PinnedVersionID: pinnedVersionID,
-			ResourceID:      db.ResourceIDs[input.Resource],
+			ResourceID:      versions.ResourceIDs[input.Resource],
 			Passed:          jobs,
-			JobID:           db.JobIDs[jobName],
+			JobID:           job.ID(),
 		})
 	}
 
-	return inputConfigs, nil
+	mapping := db.InputMapping{}
+	versions, err := Resolve(versionsDB, configs)
+	if err != nil {
+		return nil, false, err
+	}
+
+	valid := true
+	for i, config := range configs {
+		if versions[i] == nil {
+			mapping[config.Name] = db.InputResult{
+				ResolveError: errors.New("did not finish due to other resource errors"),
+			}
+
+			valid = false
+		} else if versions[i].ResolveError != nil {
+			mapping[config.Name] = db.InputResult{
+				ResolveError: versions[i].ResolveError,
+			}
+
+			valid = false
+		} else {
+			firstOccurrence, err := versionsDB.IsVersionFirstOccurrence(versions[i].ID, config.JobID, config.Name)
+			if err != nil {
+				return nil, false, err
+			}
+
+			mapping[config.Name] = db.InputResult{
+				Input: db.AlgorithmInput{
+					AlgorithmVersion: db.AlgorithmVersion{
+						ResourceID: config.ResourceID,
+						VersionID:  versions[i].ID,
+					},
+					FirstOccurrence: firstOccurrence,
+				},
+				PassedBuildIDs: versions[i].SourceBuildIds,
+			}
+		}
+	}
+
+	return mapping, valid, nil
 }

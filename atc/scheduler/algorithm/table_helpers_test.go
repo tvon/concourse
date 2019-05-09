@@ -2,6 +2,7 @@ package algorithm_test
 
 import (
 	"compress/gzip"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,7 +10,10 @@ import (
 	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
+	"github.com/concourse/concourse/atc/db/lock"
+	"github.com/concourse/concourse/atc/metric"
 	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/lib/pq"
 	. "github.com/onsi/gomega"
@@ -130,7 +134,35 @@ func (example Example) Run() {
 		versionIDs:  StringMapping{},
 	}
 
-	setup.insertTeamsPipelines()
+	lockFactory := lock.NewLockFactory(postgresRunner.OpenSingleton(), metric.LogLockAcquired, metric.LogLockReleased)
+	teamFactory := db.NewTeamFactory(dbConn, lockFactory)
+
+	team, err := teamFactory.CreateTeam(atc.Team{Name: "algorithm"})
+	Expect(err).NotTo(HaveOccurred())
+
+	pipeline, _, err := team.SavePipeline("algorithm", atc.Config{
+		Jobs: atc.JobConfigs{
+			{
+				Name: "current",
+			},
+		},
+	}, db.ConfigVersion(0), db.PipelineUnpaused)
+	Expect(err).NotTo(HaveOccurred())
+
+	setupTx, err := dbConn.Begin()
+	Expect(err).ToNot(HaveOccurred())
+
+	brt := db.BaseResourceType{
+		Name: "some-base-type",
+	}
+
+	_, err = brt.FindOrCreate(setupTx, false)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(setupTx.Commit()).To(Succeed())
+
+	_ = setup.jobIDs.ID("current")
+
+	resources := map[string]atc.ResourceConfig{}
 
 	if example.LoadDB != "" {
 		dbFile, err := os.Open(example.LoadDB)
@@ -157,6 +189,13 @@ func (example Example) Run() {
 			setup.resourceIDs[name] = id
 
 			setup.insertResource(name)
+			resources[name] = atc.ResourceConfig{
+				Name: name,
+				Type: "some-base-type",
+				Source: atc.Source{
+					name: "source",
+				},
+			}
 		}
 
 		log.Println("IMPORTING VERSIONS")
@@ -272,11 +311,11 @@ func (example Example) Run() {
 		log.Println("DONE IMPORTING")
 	} else {
 		for _, row := range example.DB.Resources {
-			setup.insertRowVersion(row)
+			setup.insertRowVersion(resources, row)
 		}
 
 		for _, row := range example.DB.BuildInputs {
-			setup.insertRowVersion(row)
+			setup.insertRowVersion(resources, row)
 			setup.insertRowBuild(row)
 
 			resourceID := setup.resourceIDs.ID(row.Resource)
@@ -289,7 +328,7 @@ func (example Example) Run() {
 		}
 
 		for _, row := range example.DB.BuildOutputs {
-			setup.insertRowVersion(row)
+			setup.insertRowVersion(resources, row)
 			setup.insertRowBuild(row)
 
 			resourceID := setup.resourceIDs.ID(row.Resource)
@@ -308,6 +347,13 @@ func (example Example) Run() {
 
 	for _, input := range example.Inputs {
 		setup.insertResource(input.Resource)
+		resources[input.Resource] = atc.ResourceConfig{
+			Name: input.Resource,
+			Type: "some-base-type",
+			Source: atc.Source{
+				input.Resource: "source",
+			},
+		}
 	}
 
 	inputConfigs := make(algorithm.InputConfigs, len(example.Inputs))
@@ -351,7 +397,34 @@ func (example Example) Run() {
 		versionsDB.DisabledVersionIDs[versionID] = true
 	}
 
-	resolved, ok, err := inputConfigs.ComputeNextInputs(versionsDB)
+	job, found, err := pipeline.Job("current")
+	Expect(err).ToNot(HaveOccurred())
+	Expect(found).To(BeTrue())
+
+	resourceConfigs := atc.ResourceConfigs{}
+	for _, resource := range resources {
+		resourceConfigs = append(resourceConfigs, resource)
+	}
+
+	pipeline, _, err := team.SavePipeline("algorithm", atc.Config{
+		Jobs: atc.JobConfig{
+			Name: "current",
+		},
+		Resources: resourceConfigs,
+	}, db.ConfigVersion(1), db.PipelineUnpaused)
+	Expect(err).NotTo(HaveOccurred())
+
+	dbResources := db.Resources{}
+	for name, _ := range setup.ResourceIDs {
+		resource, found, err := pipeline.Resource(name)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).To(BeTrue())
+
+		dbResources = append(dbResources, resource)
+	}
+
+	inputMapper := algorithm.NewInputMapper()
+	resolved, ok, err := inputMapper.MapInputs(versionsDB, job, dbResources)
 	Expect(err).ToNot(HaveOccurred())
 
 	prettyValues := map[string]string{}
@@ -360,7 +433,6 @@ func (example Example) Run() {
 		if inputSource.ResolveError != nil {
 			erroredValues[name] = inputSource.ResolveError.Error()
 		} else {
-			fmt.Println("================", inputSource.Input)
 			prettyValues[name] = setup.versionIDs.Name(inputSource.Input.AlgorithmVersion.VersionID)
 		}
 	}
@@ -418,9 +490,12 @@ func (s setupDB) insertJob(jobName string) int {
 func (s setupDB) insertResource(name string) int {
 	resourceID := s.resourceIDs.ID(name)
 
+	j, err := json.Marshal(atc.Source{name: "source"})
+	Expect(err).ToNot(HaveOccurred())
+
 	_, err := s.psql.Insert("resource_configs").
-		Columns("id", "source_hash").
-		Values(resourceID, "bogus-hash").
+		Columns("id", "source_hash", "base_resource_type_id").
+		Values(resourceID, fmt.Sprintf("%x", sha256.Sum256(j)), 1).
 		Suffix("ON CONFLICT DO NOTHING").
 		Exec()
 	Expect(err).ToNot(HaveOccurred())
@@ -442,10 +517,17 @@ func (s setupDB) insertResource(name string) int {
 	return resourceID
 }
 
-func (s setupDB) insertRowVersion(row DBRow) {
+func (s setupDB) insertRowVersion(resources map[string]atc.ResourceConfig, row DBRow) {
 	versionID := s.versionIDs.ID(row.Version)
 
 	resourceID := s.insertResource(row.Resource)
+	resources[name] = atc.ResourceConfig{
+		Name: name,
+		Type: "some-base-type",
+		Source: atc.Source{
+			name: "source",
+		},
+	}
 
 	_, err := s.psql.Insert("resource_config_versions").
 		Columns("id", "resource_config_scope_id", "version", "version_md5", "check_order").

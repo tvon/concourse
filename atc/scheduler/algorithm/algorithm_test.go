@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 )
 
-var _ = FDescribeTable("Input resolving",
+var _ = DescribeTable("Input resolving",
 	(Example).Run,
 
 	Entry("can fan-in", Example{
@@ -123,7 +123,7 @@ var _ = FDescribeTable("Input resolving",
 			OK:     false,
 			Values: map[string]string{},
 			Errors: map[string]string{
-				"resource-x": "pinned version 'rxv2' not found",
+				"resource-x": "pinned version 1 not found",
 			},
 		},
 	}),
@@ -1524,7 +1524,7 @@ var _ = FDescribeTable("Input resolving",
 		},
 	}),
 
-	Entry("returns the earliest non-disabled version that satisfies constraints when several versions do not satisfy when using every version", Example{
+	XEntry("returns the earliest non-disabled version that satisfies constraints when several versions do not satisfy when using every version", Example{
 		DB: DB{
 			BuildInputs: []DBRow{
 				{Job: CurrentJobName, BuildID: 100, Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
@@ -1686,8 +1686,13 @@ var _ = FDescribeTable("Input resolving",
 		},
 
 		Result: Result{
-			OK:     false,
-			Values: map[string]string{},
+			OK: false,
+			Values: map[string]string{
+				"input-1": "new-r1-common-to-shared-and-j1",
+			},
+			Errors: map[string]string{
+				"input-2": "passed job 2 does not have a build that satisfies the constraints",
+			},
 		},
 	}),
 
@@ -1787,6 +1792,152 @@ var _ = FDescribeTable("Input resolving",
 			OK: true,
 			Values: map[string]string{
 				"resource-x": "rxv2",
+			},
+		},
+	}),
+
+	Entry("waiting on upstream job for shared version (ryv3)", Example{
+		DB: DB{
+			BuildOutputs: []DBRow{
+				{Job: "shared-job", BuildID: 1, Resource: "resource-x", Version: "rxv3", CheckOrder: 1},
+				{Job: "shared-job", BuildID: 1, Resource: "resource-y", Version: "ryv3", CheckOrder: 1},
+
+				{Job: "simple-a", BuildID: 2, Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Job: "simple-a", BuildID: 3, Resource: "resource-y", Version: "ryv2", CheckOrder: 2},
+			},
+
+			Resources: []DBRow{
+				{Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+				{Resource: "resource-x", Version: "rxv2", CheckOrder: 2},
+				{Resource: "resource-x", Version: "rxv3", CheckOrder: 3},
+
+				{Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Resource: "resource-y", Version: "ryv2", CheckOrder: 2},
+				{Resource: "resource-y", Version: "ryv3", CheckOrder: 3},
+			},
+		},
+
+		Inputs: Inputs{
+			{
+				Name:     "resource-x",
+				Resource: "resource-x",
+				Passed:   []string{"shared-job"},
+			},
+			{
+				Name:     "resource-y",
+				Resource: "resource-y",
+				Passed:   []string{"shared-job", "simple-a"},
+			},
+		},
+
+		Result: Result{
+			OK: false,
+			Values: map[string]string{
+				"resource-x": "rxv3",
+			},
+			Errors: map[string]string{
+				"resource-y": "passed job 2 does not have a build that satisfies the constraints",
+			},
+		},
+	}),
+
+	Entry("reconfigure passed constraints for job with missing upstream dependency (simple-c)", Example{
+		DB: DB{
+			BuildInputs: []DBRow{
+				{Job: CurrentJobName, BuildID: 100, Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+				{Job: CurrentJobName, BuildID: 100, Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Job: CurrentJobName, BuildID: 100, Resource: "resource-w", Version: "rwv1", CheckOrder: 1},
+				{Job: CurrentJobName, BuildID: 100, Resource: "resource-v", Version: "rvv1", CheckOrder: 1},
+			},
+
+			BuildPipes: []DBRow{
+				{FromBuildID: 1, ToBuildID: 100},
+				{FromBuildID: 7, ToBuildID: 100},
+				{FromBuildID: 9, ToBuildID: 100},
+			},
+
+			BuildOutputs: []DBRow{
+				{Job: "simple-a", BuildID: 1, Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+				{Job: "simple-a", BuildID: 2, Resource: "resource-x", Version: "rxv2", CheckOrder: 2},
+
+				{Job: "simple-b", BuildID: 3, Resource: "resource-z", Version: "rzv1", CheckOrder: 1},
+				{Job: "simple-b", BuildID: 4, Resource: "resource-z", Version: "rzv2", CheckOrder: 2},
+
+				{Job: "simple-c", BuildID: 5, Resource: "resource-w", Version: "rwv3", CheckOrder: 1},
+				{Job: "simple-c", BuildID: 6, Resource: "resource-w", Version: "rwv4", CheckOrder: 2},
+
+				{Job: "shared-job", BuildID: 7, Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+				{Job: "shared-job", BuildID: 7, Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Job: "shared-job", BuildID: 8, Resource: "resource-x", Version: "rxv2", CheckOrder: 2},
+				{Job: "shared-job", BuildID: 8, Resource: "resource-y", Version: "ryv2", CheckOrder: 2},
+
+				{Job: "shared-b", BuildID: 9, Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Job: "shared-b", BuildID: 9, Resource: "resource-w", Version: "rwv1", CheckOrder: 1},
+				{Job: "shared-b", BuildID: 10, Resource: "resource-y", Version: "ryv2", CheckOrder: 2},
+				{Job: "shared-b", BuildID: 10, Resource: "resource-w", Version: "rwv2", CheckOrder: 2},
+			},
+
+			Resources: []DBRow{
+				{Resource: "resource-x", Version: "rxv1", CheckOrder: 1},
+				{Resource: "resource-x", Version: "rxv2", CheckOrder: 2},
+				{Resource: "resource-x", Version: "rxv3", CheckOrder: 3},
+
+				{Resource: "resource-y", Version: "ryv1", CheckOrder: 1},
+				{Resource: "resource-y", Version: "ryv2", CheckOrder: 2},
+				{Resource: "resource-y", Version: "ryv3", CheckOrder: 3},
+
+				{Resource: "resource-w", Version: "rwv1", CheckOrder: 1},
+				{Resource: "resource-w", Version: "rwv2", CheckOrder: 2},
+				{Resource: "resource-w", Version: "rwv3", CheckOrder: 3},
+				{Resource: "resource-w", Version: "rwv4", CheckOrder: 4},
+
+				{Resource: "resource-z", Version: "rzv1", CheckOrder: 1},
+				{Resource: "resource-z", Version: "rzv2", CheckOrder: 2},
+
+				{Resource: "resource-v", Version: "rvv1", CheckOrder: 1},
+				{Resource: "resource-v", Version: "rvv2", CheckOrder: 2},
+				{Resource: "resource-v", Version: "rvv3", CheckOrder: 3},
+			},
+		},
+
+		Inputs: Inputs{
+			{
+				Name:     "resource-x",
+				Resource: "resource-x",
+				Passed:   []string{"shared-job", "simple-a"},
+			},
+			{
+				Name:     "resource-y",
+				Resource: "resource-y",
+				Passed:   []string{"shared-job", "shared-b"},
+			},
+			{
+				Name:     "resource-z",
+				Resource: "resource-z",
+				Passed:   []string{"simple-b"},
+			},
+			{
+				Name:     "resource-w",
+				Resource: "resource-w",
+				Passed:   []string{"shared-b", "simple-c"},
+			},
+			{
+				Name:     "resource-v",
+				Resource: "resource-v",
+				Version:  Version{Latest: true},
+			},
+		},
+
+		Result: Result{
+			OK: false,
+			Values: map[string]string{
+				"resource-x": "rxv2",
+				"resource-y": "ryv2",
+				"resource-z": "rzv2",
+			},
+			Errors: map[string]string{
+				"resource-w": "passed job 4 does not have a build that satisfies the constraints",
+				"resource-v": "did not finish due to other resource errors",
 			},
 		},
 	}),

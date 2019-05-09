@@ -135,7 +135,7 @@ func (s *buildStarter) tryStartNextPendingBuild(
 		resourceTypes = dbResourceTypes.Deserialize()
 	}
 
-	buildInputs, found, err := job.GetNextBuildInputs()
+	buildInputs, found, err := job.GetFullNextBuildInputs()
 	if err != nil {
 		logger.Error("failed-to-get-next-build-inputs", err)
 		return false, err

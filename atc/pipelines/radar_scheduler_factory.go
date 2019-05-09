@@ -11,9 +11,8 @@ import (
 	"github.com/concourse/concourse/atc/radar"
 	"github.com/concourse/concourse/atc/resource"
 	"github.com/concourse/concourse/atc/scheduler"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/scheduler/factory"
-	"github.com/concourse/concourse/atc/scheduler/inputmapper"
-	"github.com/concourse/concourse/atc/scheduler/inputmapper/inputconfig"
 	"github.com/concourse/concourse/atc/scheduler/maxinflight"
 	"github.com/concourse/concourse/atc/worker"
 )
@@ -22,7 +21,7 @@ import (
 
 type RadarSchedulerFactory interface {
 	BuildScanRunnerFactory(dbPipeline db.Pipeline, externalURL string, variables creds.Variables) radar.ScanRunnerFactory
-	BuildScheduler(pipeline db.Pipeline) scheduler.BuildScheduler
+	BuildScheduler() scheduler.BuildScheduler
 }
 
 type radarSchedulerFactory struct {
@@ -59,14 +58,9 @@ func (rsf *radarSchedulerFactory) BuildScanRunnerFactory(dbPipeline db.Pipeline,
 	return radar.NewScanRunnerFactory(rsf.pool, rsf.resourceFactory, rsf.resourceConfigFactory, rsf.resourceTypeCheckingInterval, rsf.resourceCheckingInterval, dbPipeline, clock.NewClock(), externalURL, variables, rsf.strategy)
 }
 
-func (rsf *radarSchedulerFactory) BuildScheduler(pipeline db.Pipeline) scheduler.BuildScheduler {
-	inputMapper := inputmapper.NewInputMapper(
-		pipeline,
-		inputconfig.NewTransformer(pipeline),
-	)
+func (rsf *radarSchedulerFactory) BuildScheduler() scheduler.BuildScheduler {
 	return &scheduler.Scheduler{
-		Pipeline:    pipeline,
-		InputMapper: inputMapper,
+		InputMapper: algorithm.NewInputMapper(),
 		BuildStarter: scheduler.NewBuildStarter(
 			pipeline,
 			maxinflight.NewUpdater(pipeline),

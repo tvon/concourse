@@ -605,7 +605,7 @@ var _ = Describe("Job", func() {
 				actualBuild, err = job2.CreateBuild()
 				Expect(err).NotTo(HaveOccurred())
 
-				err = job2.SaveNextInputMapping(nil, false)
+				err = job2.SaveNextInputMapping(nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -627,9 +627,9 @@ var _ = Describe("Job", func() {
 			buildThree, err := job2.CreateBuild()
 			Expect(err).NotTo(HaveOccurred())
 
-			err = job1.SaveNextInputMapping(nil, false)
+			err = job1.SaveNextInputMapping(nil, true)
 			Expect(err).NotTo(HaveOccurred())
-			err = job2.SaveNextInputMapping(nil, false)
+			err = job2.SaveNextInputMapping(nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			build, found, err := job1.GetNextPendingBuildBySerialGroup([]string{"serial-group"})
@@ -1131,10 +1131,10 @@ var _ = Describe("Job", func() {
 					PassedBuildIDs: []int{},
 				},
 			}
-			err := job.SaveNextInputMapping(inputVersions, true)
+			err := job.SaveNextInputMapping(inputVersions, false)
 			Expect(err).NotTo(HaveOccurred())
 
-			actualBuildInputs, found, err := job.GetFullNextBuildInputs()
+			_, found, err := job.GetFullNextBuildInputs()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(found).To(BeFalse())
 		})

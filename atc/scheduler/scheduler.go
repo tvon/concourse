@@ -6,19 +6,16 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/scheduler/algorithm"
-	"github.com/concourse/concourse/atc/scheduler/inputmapper"
 )
 
 type Scheduler struct {
-	Pipeline     db.Pipeline
-	InputMapper  inputmapper.InputMapper
+	InputMapper  InputMapper
 	BuildStarter BuildStarter
 }
 
 func (s *Scheduler) Schedule(
 	logger lager.Logger,
-	versions *algorithm.VersionsDB,
+	versions *db.VersionsDB,
 	job db.Job,
 	resources db.Resources,
 	resourceTypes atc.VersionedResourceTypes,
@@ -26,12 +23,19 @@ func (s *Scheduler) Schedule(
 	jobSchedulingTime := map[string]time.Duration{}
 
 	jStart := time.Now()
-	inputMapping, err := s.InputMapper.SaveNextInputMapping(logger, versions, job, resources)
+
+	inputMapping, err := inputMapper.MapInputs(logger, versions, job, resources)
 	if err != nil {
 		return err
 	}
 
-	err := s.ensurePendingBuildExists(logger, versions, job, resources)
+	err = job.SaveNextInputMapping(inputMapping, ok)
+	if err != nil {
+		logger.Error("failed-to-save-next-input-mapping", err)
+		return err
+	}
+
+	err := s.ensurePendingBuildExists(logger, job, resources)
 	jobSchedulingTime[job.Name()] = time.Since(jStart)
 
 	if err != nil {
@@ -50,7 +54,6 @@ func (s *Scheduler) Schedule(
 
 func (s *Scheduler) ensurePendingBuildExists(
 	logger lager.Logger,
-	versions *algorithm.VersionsDB,
 	job db.Job,
 	resources db.Resources,
 ) error {

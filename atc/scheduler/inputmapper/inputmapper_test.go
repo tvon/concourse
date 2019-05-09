@@ -6,8 +6,8 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/db/dbfakes"
+	"github.com/concourse/concourse/atc/scheduler/algorithm"
 	"github.com/concourse/concourse/atc/scheduler/inputmapper"
 	"github.com/concourse/concourse/atc/scheduler/inputmapper/inputconfig/inputconfigfakes"
 
@@ -36,22 +36,22 @@ var _ = Describe("Inputmapper", func() {
 
 	Describe("SaveNextInputMapping", func() {
 		var (
-			versionsDB   *algorithm.VersionsDB
+			versionsDB   *db.VersionsDB
 			fakeJob      *dbfakes.FakeJob
 			resources    db.Resources
-			inputMapping algorithm.InputMapping
+			inputMapping db.InputMapping
 			mappingErr   error
 		)
 
 		BeforeEach(func() {
-			versionsDB = &algorithm.VersionsDB{
+			versionsDB = &db.VersionsDB{
 				JobIDs:      map[string]int{"some-job": 1, "upstream": 2},
 				ResourceIDs: map[string]int{"a": 11, "b": 12, "no-versions": 13},
 			}
 		})
 
 		JustBeforeEach(func() {
-			inputMapping, mappingErr = inputMapper.SaveNextInputMapping(
+			mappingErr = inputMapper.SaveNextInputMapping(
 				lagertest.NewTestLogger("test"),
 				versionsDB,
 				fakeJob,
@@ -106,30 +106,30 @@ var _ = Describe("Inputmapper", func() {
 						{
 							Name:       "alias",
 							ResourceID: 11,
-							Passed:     algorithm.JobSet{},
+							Passed:     db.JobSet{},
 							JobID:      1,
 						},
 						{
 							Name:       "b",
 							ResourceID: 12,
-							Passed:     algorithm.JobSet{},
+							Passed:     db.JobSet{},
 							JobID:      1,
 						},
 					}, nil)
 				})
 
-				Context("when saving the independent input mapping fails", func() {
+				Context("when saving the next input mapping fails", func() {
 					BeforeEach(func() {
-						fakeJob.SaveIndependentInputMappingReturns(disaster)
+						fakeJob.SaveNextInputMappingReturns(disaster)
 					})
 
 					It("returns the error", func() {
 						Expect(mappingErr).To(Equal(disaster))
 					})
 
-					FIt("saved the right input mapping", func() {
-						Expect(fakeJob.SaveIndependentInputMappingCallCount()).To(Equal(1))
-						actualMapping := fakeJob.SaveIndependentInputMappingArgsForCall(0)
+					It("saved the right input mapping", func() {
+						Expect(fakeJob.SaveNextInputMappingCallCount()).To(Equal(1))
+						actualMapping, _ := fakeJob.SaveNextInputMappingArgsForCall(0)
 						Expect(actualMapping).To(Equal(algorithm.InputMapping{
 							"alias": algorithm.InputSource{
 								InputVersion:   algorithm.InputVersion{VersionID: 1, ResourceID: 11, FirstOccurrence: true},
@@ -143,92 +143,23 @@ var _ = Describe("Inputmapper", func() {
 					})
 				})
 
-				Context("when saving the independent input mapping succeeds", func() {
+				Context("when saving the next input mapping succeeds", func() {
 					BeforeEach(func() {
-						fakeJob.SaveIndependentInputMappingReturns(nil)
+						fakeJob.SaveNextInputMappingReturns(nil)
 					})
 
-					Context("when saving the next input mapping fails", func() {
-						BeforeEach(func() {
-							fakeJob.SaveNextInputMappingReturns(disaster)
-						})
-
-						It("returns the error", func() {
-							Expect(mappingErr).To(Equal(disaster))
-						})
-
-						It("saved the right input mapping", func() {
-							Expect(fakeJob.SaveIndependentInputMappingCallCount()).To(Equal(1))
-							actualMapping := fakeJob.SaveIndependentInputMappingArgsForCall(0)
-							Expect(actualMapping).To(Equal(algorithm.InputMapping{
-								"alias": algorithm.InputSource{
-									InputVersion:   algorithm.InputVersion{VersionID: 1, ResourceID: 11, FirstOccurrence: true},
-									PassedBuildIDs: []int{},
-								},
-								"b": algorithm.InputSource{
-									InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 12, FirstOccurrence: true},
-									PassedBuildIDs: []int{},
-								},
-							}))
-						})
-					})
-
-					Context("when saving the next input mapping succeeds", func() {
-						BeforeEach(func() {
-							fakeJob.SaveNextInputMappingReturns(nil)
-						})
-
-						It("didn't delete the mapping", func() {
-							Expect(fakeJob.DeleteNextInputMappingCallCount()).To(BeZero())
-						})
-
-						It("saved the right input mapping", func() {
-							actualMapping := fakeJob.SaveNextInputMappingArgsForCall(0)
-							Expect(actualMapping).To(Equal(algorithm.InputMapping{
-								"alias": algorithm.InputSource{
-									InputVersion:   algorithm.InputVersion{VersionID: 1, ResourceID: 11, FirstOccurrence: true},
-									PassedBuildIDs: []int{},
-								},
-								"b": algorithm.InputSource{
-									InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 12, FirstOccurrence: true},
-									PassedBuildIDs: []int{},
-								},
-							}))
-						})
-
-						Context("when saving build pipes succeeds", func() {
-							BeforeEach(func() {
-								fakeJob.SaveNextBuildPipesReturns(nil)
-							})
-
-							It("didn't delete the build pipes", func() {
-								Expect(fakeJob.DeleteNextBuildPipesCallCount()).To(BeZero())
-							})
-
-							It("returns the mapping", func() {
-								Expect(mappingErr).NotTo(HaveOccurred())
-								Expect(inputMapping).To(Equal(algorithm.InputMapping{
-									"alias": algorithm.InputSource{
-										InputVersion:   algorithm.InputVersion{VersionID: 1, ResourceID: 11, FirstOccurrence: true},
-										PassedBuildIDs: []int{},
-									},
-									"b": algorithm.InputSource{
-										InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 12, FirstOccurrence: true},
-										PassedBuildIDs: []int{},
-									},
-								}))
-							})
-						})
-
-						Context("when saving build pipes fails", func() {
-							BeforeEach(func() {
-								fakeJob.SaveNextBuildPipesReturns(disaster)
-							})
-
-							It("returns the error", func() {
-								Expect(mappingErr).To(Equal(disaster))
-							})
-						})
+					It("saved the right input mapping", func() {
+						actualMapping := fakeJob.SaveNextInputMappingArgsForCall(0)
+						Expect(actualMapping).To(Equal(algorithm.InputMapping{
+							"alias": algorithm.InputSource{
+								InputVersion:   algorithm.InputVersion{VersionID: 1, ResourceID: 11, FirstOccurrence: true},
+								PassedBuildIDs: []int{},
+							},
+							"b": algorithm.InputSource{
+								InputVersion:   algorithm.InputVersion{VersionID: 2, ResourceID: 12, FirstOccurrence: true},
+								PassedBuildIDs: []int{},
+							},
+						}))
 					})
 				})
 			})

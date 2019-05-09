@@ -34,7 +34,7 @@ var _ = Describe("Transformer", func() {
 
 			JustBeforeEach(func() {
 				algorithmInputs, tranformErr = transformer.TransformInputConfigs(
-					&algorithm.VersionsDB{
+					&db.VersionsDB{
 						JobIDs:      map[string]int{"j1": 1, "j2": 2},
 						ResourceIDs: map[string]int{"r1": 11, "r2": 12},
 					},
@@ -227,7 +227,7 @@ var _ = Describe("Transformer", func() {
 		Context("when an input has things that don't exist", func() {
 			It("at least doesn't panic", func() {
 				algorithmInputs, transformErr := transformer.TransformInputConfigs(
-					&algorithm.VersionsDB{},
+					&db.VersionsDB{},
 					"no",
 					[]atc.JobInput{{
 						Name:     "job-input-1",
