@@ -280,7 +280,7 @@ var _ = Describe("PutStep", func() {
 			It("saves the build output", func() {
 				Expect(fakeBuild.SaveOutputCallCount()).To(Equal(1))
 
-				_, actualResourceType, actualSource, actualResourceTypes, version, metadata, outputName, resourceName := fakeBuild.SaveOutputArgsForCall(0)
+				actualResourceType, actualSource, actualResourceTypes, version, metadata, outputName, resourceName := fakeBuild.SaveOutputArgsForCall(0)
 				Expect(actualResourceType).To(Equal("some-resource-type"))
 				Expect(actualSource).To(Equal(atc.Source{"some": "super-secret-source"}))
 				Expect(actualResourceTypes).To(Equal(resourceTypes))

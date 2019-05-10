@@ -119,7 +119,6 @@ var _ = Describe("ResourceCacheFactory", func() {
 	Describe("FindOrCreateResourceCache", func() {
 		It("creates resource cache in database", func() {
 			usedResourceCache, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-type",
 				atc.Version{"some": "version"},
@@ -200,7 +199,6 @@ var _ = Describe("ResourceCacheFactory", func() {
 
 		It("returns an error if base resource type does not exist", func() {
 			_, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-type-using-bogus-base-type",
 				atc.Version{"some": "version"},
@@ -222,7 +220,6 @@ var _ = Describe("ResourceCacheFactory", func() {
 
 		It("allows a base resource type to be overridden using itself", func() {
 			usedResourceCache, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-image-type",
 				atc.Version{"some": "version"},
@@ -286,7 +283,6 @@ var _ = Describe("ResourceCacheFactory", func() {
 
 					for i := 0; i < 100; i++ {
 						_, err := resourceCacheFactory.FindOrCreateResourceCache(
-							logger,
 							db.ForBuild(build.ID()),
 							"some-base-resource-type",
 							atc.Version{"some": "version"},

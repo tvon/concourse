@@ -18,7 +18,6 @@ var _ = Describe("WorkerResourceCache", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceCache, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-base-resource-type",
 				atc.Version{"some": "version"},
@@ -82,7 +81,6 @@ var _ = Describe("WorkerResourceCache", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceCache, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-base-resource-type",
 				atc.Version{"some": "version"},
@@ -133,7 +131,6 @@ var _ = Describe("WorkerResourceCache", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				resourceCache, err := resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForBuild(build.ID()),
 					"some-bogus-resource-type",
 					atc.Version{"some": "version"},

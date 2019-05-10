@@ -30,7 +30,6 @@ var _ = Describe("ContainerRepository", func() {
 			BeforeEach(func() {
 				var err error
 				resourceConfig, err = resourceConfigFactory.FindOrCreateResourceConfig(
-					logger,
 					"some-base-resource-type",
 					atc.Source{"some": "source"},
 					creds.VersionedResourceTypes{},

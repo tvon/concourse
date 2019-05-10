@@ -42,7 +42,6 @@ var _ = Describe("ResourceCache", func() {
 
 		It("can be created and used", func() {
 			urc, err := resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForBuild(build.ID()),
 				"some-worker-resource-type",
 				atc.Version{"some": "version"},
@@ -70,7 +69,6 @@ var _ = Describe("ResourceCache", func() {
 			BeforeEach(func() {
 				var err error
 				existingResourceCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForBuild(build.ID()),
 					"some-worker-resource-type",
 					atc.Version{"some": "version"},
@@ -88,7 +86,6 @@ var _ = Describe("ResourceCache", func() {
 
 			It("returns the same used resource cache", func() {
 				urc, err := resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForBuild(build.ID()),
 					"some-worker-resource-type",
 					atc.Version{"some": "version"},
@@ -127,7 +124,6 @@ var _ = Describe("ResourceCache", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			urc, err = resourceCacheFactory.FindOrCreateResourceCache(
-				logger,
 				db.ForContainer(container.ID()),
 				"some-worker-resource-type",
 				atc.Version{"some-type": "version"},
@@ -156,7 +152,6 @@ var _ = Describe("ResourceCache", func() {
 			BeforeEach(func() {
 				var err error
 				existingResourceCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForContainer(container.ID()),
 					"some-worker-resource-type",
 					atc.Version{"some-type": "version"},

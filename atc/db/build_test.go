@@ -408,7 +408,7 @@ var _ = Describe("Build", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			resourceConfigScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{})
+			resourceConfigScope, err = resource.SetResourceConfig(atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -417,7 +417,7 @@ var _ = Describe("Build", func() {
 				build, err := job.CreateBuild()
 				Expect(err).ToNot(HaveOccurred())
 
-				err = build.SaveOutput(logger, "some-type", atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{}, atc.Version{"some": "version"}, []db.ResourceConfigMetadataField{
+				err = build.SaveOutput("some-type", atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{}, atc.Version{"some": "version"}, []db.ResourceConfigMetadataField{
 					{
 						Name:  "meta1",
 						Value: "data1",
@@ -458,7 +458,7 @@ var _ = Describe("Build", func() {
 				build, err := job.CreateBuild()
 				Expect(err).ToNot(HaveOccurred())
 
-				err = build.SaveOutput(logger, "some-type", atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{}, atc.Version{"some": "version"}, []db.ResourceConfigMetadataField{
+				err = build.SaveOutput("some-type", atc.Source{"some": "explicit-source"}, creds.VersionedResourceTypes{}, atc.Version{"some": "version"}, []db.ResourceConfigMetadataField{
 					{
 						Name:  "meta1",
 						Value: "data1",
@@ -540,10 +540,10 @@ var _ = Describe("Build", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			resourceConfigScope1, err = resource1.SetResourceConfig(logger, atc.Source{"some": "source-1"}, creds.VersionedResourceTypes{})
+			resourceConfigScope1, err = resource1.SetResourceConfig(atc.Source{"some": "source-1"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = resource2.SetResourceConfig(logger, atc.Source{"some": "source-2"}, creds.VersionedResourceTypes{})
+			_, err = resource2.SetResourceConfig(atc.Source{"some": "source-2"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = resourceConfigScope1.SaveVersions([]atc.Version{
@@ -573,7 +573,7 @@ var _ = Describe("Build", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// save explicit output from 'put'
-			err = build.SaveOutput(logger, "some-type", atc.Source{"some": "source-2"}, creds.VersionedResourceTypes{}, atc.Version{"ver": "2"}, nil, "some-output-name", "some-other-resource")
+			err = build.SaveOutput("some-type", atc.Source{"some": "source-2"}, creds.VersionedResourceTypes{}, atc.Version{"ver": "2"}, nil, "some-output-name", "some-other-resource")
 			Expect(err).NotTo(HaveOccurred())
 
 			inputs, outputs, err := build.Resources()
@@ -768,7 +768,7 @@ var _ = Describe("Build", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(found).To(BeTrue())
 
-					resourceConfigScope, err := resource.SetResourceConfig(logger, atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
+					resourceConfigScope, err := resource.SetResourceConfig(atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = resourceConfigScope.SaveVersions([]atc.Version{{"version": "v5"}})
@@ -946,7 +946,7 @@ var _ = Describe("Build", func() {
 					Expect(found).To(BeTrue())
 					Expect(err).NotTo(HaveOccurred())
 
-					resourceConfig6, err := resource6.SetResourceConfig(logger, atc.Source{"some": "source-6"}, creds.VersionedResourceTypes{})
+					resourceConfig6, err := resource6.SetResourceConfig(atc.Source{"some": "source-6"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = resourceConfig6.SaveVersions([]atc.Version{{"version": "v6"}})
@@ -960,7 +960,7 @@ var _ = Describe("Build", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(found).To(BeTrue())
 
-					resourceConfig1, err := resource1.SetResourceConfig(logger, atc.Source{"some": "source-1"}, creds.VersionedResourceTypes{})
+					resourceConfig1, err := resource1.SetResourceConfig(atc.Source{"some": "source-1"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = resourceConfig1.SaveVersions([]atc.Version{{"version": "v1"}})
@@ -1118,7 +1118,7 @@ var _ = Describe("Build", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			resourceConfig, err := resource.SetResourceConfig(logger, atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
+			resourceConfig, err := resource.SetResourceConfig(atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = resourceConfig.SaveVersions([]atc.Version{atc.Version{"some": "version"}})
@@ -1150,7 +1150,7 @@ var _ = Describe("Build", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			resourceConfig, err := resource.SetResourceConfig(logger, atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
+			resourceConfig, err := resource.SetResourceConfig(atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = resourceConfig.SaveVersions([]atc.Version{atc.Version{"some": "weird-version"}})
@@ -1171,7 +1171,7 @@ var _ = Describe("Build", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(found).To(BeTrue())
 
-			weirdRC, err := weirdResource.SetResourceConfig(logger, atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
+			weirdRC, err := weirdResource.SetResourceConfig(atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = weirdRC.SaveVersions([]atc.Version{atc.Version{"weird": "version"}})

@@ -238,7 +238,7 @@ var _ = Describe("ResourceScanner", func() {
 
 				It("constructs the resource of the correct type", func() {
 					Expect(fakeDBResource.SetResourceConfigCallCount()).To(Equal(1))
-					_, resourceSource, resourceTypes := fakeDBResource.SetResourceConfigArgsForCall(0)
+					resourceSource, resourceTypes := fakeDBResource.SetResourceConfigArgsForCall(0)
 					Expect(resourceSource).To(Equal(atc.Source{"uri": "some-secret-sauce"}))
 					Expect(resourceTypes).To(Equal(creds.NewVersionedResourceTypes(variables, atc.VersionedResourceTypes{
 						versionedResourceType,
@@ -670,7 +670,7 @@ var _ = Describe("ResourceScanner", func() {
 
 			It("constructs the resource of the correct type", func() {
 				Expect(fakeDBResource.SetResourceConfigCallCount()).To(Equal(1))
-				_, resourceSource, resourceTypes := fakeDBResource.SetResourceConfigArgsForCall(0)
+				resourceSource, resourceTypes := fakeDBResource.SetResourceConfigArgsForCall(0)
 				Expect(resourceSource).To(Equal(atc.Source{"uri": "some-secret-sauce"}))
 				Expect(resourceTypes).To(Equal(creds.NewVersionedResourceTypes(variables, atc.VersionedResourceTypes{
 					versionedResourceType,

@@ -382,17 +382,16 @@ type FakeBuild struct {
 	saveImageResourceVersionReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SaveOutputStub        func(lager.Logger, string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) error
+	SaveOutputStub        func(string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) error
 	saveOutputMutex       sync.RWMutex
 	saveOutputArgsForCall []struct {
-		arg1 lager.Logger
-		arg2 string
-		arg3 atc.Source
-		arg4 creds.VersionedResourceTypes
-		arg5 atc.Version
-		arg6 db.ResourceConfigMetadataFields
+		arg1 string
+		arg2 atc.Source
+		arg3 creds.VersionedResourceTypes
+		arg4 atc.Version
+		arg5 db.ResourceConfigMetadataFields
+		arg6 string
 		arg7 string
-		arg8 string
 	}
 	saveOutputReturns struct {
 		result1 error
@@ -2330,23 +2329,22 @@ func (fake *FakeBuild) SaveImageResourceVersionReturnsOnCall(i int, result1 erro
 	}{result1}
 }
 
-func (fake *FakeBuild) SaveOutput(arg1 lager.Logger, arg2 string, arg3 atc.Source, arg4 creds.VersionedResourceTypes, arg5 atc.Version, arg6 db.ResourceConfigMetadataFields, arg7 string, arg8 string) error {
+func (fake *FakeBuild) SaveOutput(arg1 string, arg2 atc.Source, arg3 creds.VersionedResourceTypes, arg4 atc.Version, arg5 db.ResourceConfigMetadataFields, arg6 string, arg7 string) error {
 	fake.saveOutputMutex.Lock()
 	ret, specificReturn := fake.saveOutputReturnsOnCall[len(fake.saveOutputArgsForCall)]
 	fake.saveOutputArgsForCall = append(fake.saveOutputArgsForCall, struct {
-		arg1 lager.Logger
-		arg2 string
-		arg3 atc.Source
-		arg4 creds.VersionedResourceTypes
-		arg5 atc.Version
-		arg6 db.ResourceConfigMetadataFields
+		arg1 string
+		arg2 atc.Source
+		arg3 creds.VersionedResourceTypes
+		arg4 atc.Version
+		arg5 db.ResourceConfigMetadataFields
+		arg6 string
 		arg7 string
-		arg8 string
-	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8})
-	fake.recordInvocation("SaveOutput", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8})
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
+	fake.recordInvocation("SaveOutput", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
 	fake.saveOutputMutex.Unlock()
 	if fake.SaveOutputStub != nil {
-		return fake.SaveOutputStub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+		return fake.SaveOutputStub(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	}
 	if specificReturn {
 		return ret.result1
@@ -2361,17 +2359,17 @@ func (fake *FakeBuild) SaveOutputCallCount() int {
 	return len(fake.saveOutputArgsForCall)
 }
 
-func (fake *FakeBuild) SaveOutputCalls(stub func(lager.Logger, string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) error) {
+func (fake *FakeBuild) SaveOutputCalls(stub func(string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) error) {
 	fake.saveOutputMutex.Lock()
 	defer fake.saveOutputMutex.Unlock()
 	fake.SaveOutputStub = stub
 }
 
-func (fake *FakeBuild) SaveOutputArgsForCall(i int) (lager.Logger, string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) {
+func (fake *FakeBuild) SaveOutputArgsForCall(i int) (string, atc.Source, creds.VersionedResourceTypes, atc.Version, db.ResourceConfigMetadataFields, string, string) {
 	fake.saveOutputMutex.RLock()
 	defer fake.saveOutputMutex.RUnlock()
 	argsForCall := fake.saveOutputArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7
 }
 
 func (fake *FakeBuild) SaveOutputReturns(result1 error) {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/lager"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/creds"
@@ -54,12 +53,12 @@ type Team interface {
 	Workers() ([]Worker, error)
 	FindVolumeForWorkerArtifact(int) (CreatedVolume, bool, error)
 
-	Containers(lager.Logger) ([]Container, error)
+	Containers() ([]Container, error)
 	IsCheckContainer(string) (bool, error)
 	IsContainerWithinTeam(string, bool) (bool, error)
 
 	FindContainerByHandle(string) (Container, bool, error)
-	FindCheckContainers(lager.Logger, string, string, creds.Secrets) ([]Container, map[int]time.Time, error)
+	FindCheckContainers(string, string, creds.Secrets) ([]Container, map[int]time.Time, error)
 	FindContainersByMetadata(ContainerMetadata) ([]Container, error)
 	FindCreatedContainerByHandle(string) (CreatedContainer, bool, error)
 	FindWorkerForContainer(handle string) (Worker, bool, error)
@@ -152,9 +151,7 @@ func (t *team) FindWorkerForVolume(handle string) (Worker, bool, error) {
 	}))
 }
 
-func (t *team) Containers(
-	logger lager.Logger,
-) ([]Container, error) {
+func (t *team) Containers() ([]Container, error) {
 	rows, err := selectContainers("c").
 		Join("workers w ON c.worker_name = w.name").
 		Join("resource_config_check_sessions rccs ON rccs.id = c.resource_config_check_session_id").
@@ -803,7 +800,7 @@ func (t *team) UpdateProviderAuth(auth atc.TeamAuth) error {
 	return tx.Commit()
 }
 
-func (t *team) FindCheckContainers(logger lager.Logger, pipelineName string, resourceName string, secretManager creds.Secrets) ([]Container, map[int]time.Time, error) {
+func (t *team) FindCheckContainers(pipelineName string, resourceName string, secretManager creds.Secrets) ([]Container, map[int]time.Time, error) {
 	pipeline, found, err := t.Pipeline(pipelineName)
 	if err != nil {
 		return nil, nil, err
@@ -836,7 +833,6 @@ func (t *team) FindCheckContainers(logger lager.Logger, pipelineName string, res
 
 	resourceConfigFactory := NewResourceConfigFactory(t.conn, t.lockFactory)
 	resourceConfig, err := resourceConfigFactory.FindOrCreateResourceConfig(
-		logger,
 		resource.Type(),
 		source,
 		creds.NewVersionedResourceTypes(variables, versionedResourceTypes),

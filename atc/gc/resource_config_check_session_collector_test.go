@@ -47,7 +47,6 @@ var _ = Describe("ResourceConfigCheckSessionCollector", func() {
 			Expect(found).To(BeTrue())
 
 			resourceConfigScope, err = resource.SetResourceConfig(
-				logger,
 				atc.Source{
 					"some": "source",
 				},

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"code.cloudfoundry.org/lager"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/creds"
@@ -25,7 +24,6 @@ func (e ErrCustomResourceTypeVersionNotFound) Error() string {
 
 type ResourceConfigFactory interface {
 	FindOrCreateResourceConfig(
-		logger lager.Logger,
 		resourceType string,
 		source atc.Source,
 		resourceTypes creds.VersionedResourceTypes,
@@ -73,7 +71,6 @@ func (f *resourceConfigFactory) FindResourceConfigByID(resourceConfigID int) (Re
 }
 
 func (f *resourceConfigFactory) FindOrCreateResourceConfig(
-	logger lager.Logger,
 	resourceType string,
 	source atc.Source,
 	resourceTypes creds.VersionedResourceTypes,
@@ -90,7 +87,7 @@ func (f *resourceConfigFactory) FindOrCreateResourceConfig(
 	}
 	defer Rollback(tx)
 
-	resourceConfig, err := resourceConfigDescriptor.findOrCreate(logger, tx, f.lockFactory, f.conn)
+	resourceConfig, err := resourceConfigDescriptor.findOrCreate(tx, f.lockFactory, f.conn)
 	if err != nil {
 		return nil, err
 	}

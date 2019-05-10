@@ -43,7 +43,6 @@ var _ = Describe("ResourceCacheCollector", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				oneOffCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForBuild(oneOffBuild.ID()),
 					"some-base-type",
 					atc.Version{"some": "version"},
@@ -59,7 +58,6 @@ var _ = Describe("ResourceCacheCollector", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				jobCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-					logger,
 					db.ForBuild(jobBuild.ID()),
 					"some-base-type",
 					atc.Version{"some": "version"},
@@ -77,7 +75,6 @@ var _ = Describe("ResourceCacheCollector", func() {
 				Expect(found).To(BeTrue())
 
 				_, err = resource.SetResourceConfig(
-					logger,
 					atc.Source{
 						"some": "source",
 					},
@@ -173,7 +170,6 @@ var _ = Describe("ResourceCacheCollector", func() {
 							Expect(err).ToNot(HaveOccurred())
 
 							secondJobCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-								logger,
 								db.ForBuild(secondJobBuild.ID()),
 								"some-base-type",
 								atc.Version{"some": "new-version"},
@@ -224,7 +220,6 @@ var _ = Describe("ResourceCacheCollector", func() {
 							Expect(err).ToNot(HaveOccurred())
 
 							secondJobCache, err = resourceCacheFactory.FindOrCreateResourceCache(
-								logger,
 								db.ForBuild(secondJobBuild.ID()),
 								"some-base-type",
 								atc.Version{"some": "new-version"},

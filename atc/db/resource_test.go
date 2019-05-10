@@ -138,7 +138,7 @@ var _ = Describe("Resource", func() {
 					versionsDB, err = pipeline.LoadVersionsDB()
 					Expect(err).ToNot(HaveOccurred())
 
-					resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+					resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = resourceScope.SetCheckError(errors.New("oops"))
@@ -165,7 +165,7 @@ var _ = Describe("Resource", func() {
 					})
 
 					It("does not bump the cache index", func() {
-						resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+						resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 						Expect(err).NotTo(HaveOccurred())
 
 						cachedVersionsDB, err := pipeline.LoadVersionsDB()
@@ -278,7 +278,7 @@ var _ = Describe("Resource", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(setupTx.Commit()).To(Succeed())
 
-					resourceScope1, err = resource1.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+					resourceScope1, err = resource1.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					err = resourceScope1.SetCheckError(errors.New("oops"))
@@ -303,7 +303,7 @@ var _ = Describe("Resource", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(found).To(BeTrue())
 
-						resourceScope2, err = resource2.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+						resourceScope2, err = resource2.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 						Expect(err).NotTo(HaveOccurred())
 
 						found, err = resource2.Reload()
@@ -348,7 +348,7 @@ var _ = Describe("Resource", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(setupTx.Commit()).To(Succeed())
 
-					resourceScope1, err = resource1.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+					resourceScope1, err = resource1.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					found, err = resource1.Reload()
@@ -369,7 +369,7 @@ var _ = Describe("Resource", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(found).To(BeTrue())
 
-						resourceScope2, err = resource2.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+						resourceScope2, err = resource2.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 						Expect(err).NotTo(HaveOccurred())
 
 						found, err = resource2.Reload()
@@ -416,7 +416,7 @@ var _ = Describe("Resource", func() {
 					resourceTypes, err = pipeline.ResourceTypes()
 					Expect(err).ToNot(HaveOccurred())
 
-					resourceScope1, err = resource1.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
+					resourceScope1, err = resource1.SetResourceConfig(atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
 					Expect(err).NotTo(HaveOccurred())
 
 					found, err = resource1.Reload()
@@ -438,7 +438,7 @@ var _ = Describe("Resource", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(found).To(BeTrue())
 
-						resourceScope2, err = resource2.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
+						resourceScope2, err = resource2.SetResourceConfig(atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
 						Expect(err).NotTo(HaveOccurred())
 
 						found, err = resource2.Reload()
@@ -470,7 +470,7 @@ var _ = Describe("Resource", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(found).To(BeTrue())
 
-						newResourceConfigScope, err = resource1.SetResourceConfig(logger, atc.Source{"some": "other-repo"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
+						newResourceConfigScope, err = resource1.SetResourceConfig(atc.Source{"some": "other-repo"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
 						Expect(err).NotTo(HaveOccurred())
 
 						found, err = resource1.Reload()
@@ -505,7 +505,7 @@ var _ = Describe("Resource", func() {
 						resourceTypes, err = newPipeline.ResourceTypes()
 						Expect(err).ToNot(HaveOccurred())
 
-						newResourceConfigScope, err = resource1.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
+						newResourceConfigScope, err = resource1.SetResourceConfig(atc.Source{"some": "repository"}, creds.NewVersionedResourceTypes(template.StaticVariables{}, resourceTypes.Deserialize()))
 						Expect(err).NotTo(HaveOccurred())
 
 						found, err = resource1.Reload()
@@ -555,10 +555,10 @@ var _ = Describe("Resource", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(setupTx.Commit()).To(Succeed())
 
-					_, err = resource1.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+					_, err = resource1.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
-					_, err = resource2.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+					_, err = resource2.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 					Expect(err).NotTo(HaveOccurred())
 
 					found, err = resource1.Reload()
@@ -664,7 +664,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(setupTx.Commit()).To(Succeed())
 
-				resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+				resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = resourceScope.SaveVersions([]atc.Version{version})
@@ -710,7 +710,7 @@ var _ = Describe("Resource", func() {
 				_, err = brt.FindOrCreate(setupTx, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(setupTx.Commit()).To(Succeed())
-				_, err = resourceConfigFactory.FindOrCreateResourceConfig(logger, "registry-image", atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+				_, err = resourceConfigFactory.FindOrCreateResourceConfig("registry-image", atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -748,7 +748,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeTrue())
 
-				resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
+				resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
 				Expect(err).ToNot(HaveOccurred())
 
 				originalVersionSlice = []atc.Version{
@@ -911,7 +911,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeTrue())
 
-				resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
+				resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
 				Expect(err).ToNot(HaveOccurred())
 
 				originalVersionSlice := []atc.Version{
@@ -1044,7 +1044,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeTrue())
 
-				resourceScope, err := resource.SetResourceConfig(logger, atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
+				resourceScope, err := resource.SetResourceConfig(atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
 				Expect(err).ToNot(HaveOccurred())
 
 				created, err := resource.SaveUncheckedVersion(atc.Version{"version": "not-returned"}, nil, resourceScope.ResourceConfig(), creds.VersionedResourceTypes{})
@@ -1084,7 +1084,7 @@ var _ = Describe("Resource", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(setupTx.Commit()).To(Succeed())
 
-			resourceScope, err := resource.SetResourceConfig(logger, atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
+			resourceScope, err := resource.SetResourceConfig(atc.Source{"some": "other-repository"}, creds.VersionedResourceTypes{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = resourceScope.SaveVersions([]atc.Version{
@@ -1168,7 +1168,7 @@ var _ = Describe("Resource", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(setupTx.Commit()).To(Succeed())
 
-				resourceScope, err := resource.SetResourceConfig(logger, atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
+				resourceScope, err := resource.SetResourceConfig(atc.Source{"some": "repository"}, creds.VersionedResourceTypes{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = resourceScope.SaveVersions([]atc.Version{

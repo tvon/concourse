@@ -44,7 +44,7 @@ var _ = Describe("Resource Config Scope", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 
-		resourceScope, err = resource.SetResourceConfig(logger, atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
+		resourceScope, err = resource.SetResourceConfig(atc.Source{"some": "source"}, creds.VersionedResourceTypes{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -202,7 +202,6 @@ var _ = Describe("Resource Config Scope", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceConfigScope, err = someResource.SetResourceConfig(
-				logger,
 				someResource.Source(),
 				creds.NewVersionedResourceTypes(template.StaticVariables{}, pipelineResourceTypes.Deserialize()),
 			)
@@ -282,7 +281,6 @@ var _ = Describe("Resource Config Scope", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceConfigScope, err = someResource.SetResourceConfig(
-				logger,
 				someResource.Source(),
 				creds.NewVersionedResourceTypes(template.StaticVariables{}, pipelineResourceTypes.Deserialize()),
 			)
@@ -317,7 +315,6 @@ var _ = Describe("Resource Config Scope", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceConfigScope, err = someResource.SetResourceConfig(
-				logger,
 				someResource.Source(),
 				creds.NewVersionedResourceTypes(template.StaticVariables{}, pipelineResourceTypes.Deserialize()),
 			)
@@ -331,7 +328,7 @@ var _ = Describe("Resource Config Scope", func() {
 			BeforeEach(func() {
 				var err error
 				var acquired bool
-				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 			})
@@ -341,7 +338,7 @@ var _ = Describe("Resource Config Scope", func() {
 			})
 
 			It("does not get the lock", func() {
-				_, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+				_, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeFalse())
 			})
@@ -353,7 +350,7 @@ var _ = Describe("Resource Config Scope", func() {
 				})
 
 				It("gets the lock", func() {
-					lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+					lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(acquired).To(BeTrue())
 
@@ -365,12 +362,12 @@ var _ = Describe("Resource Config Scope", func() {
 
 		Context("when there has not been a check recently", func() {
 			It("gets and keeps the lock and stops others from periodically getting it", func() {
-				lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+				lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 
 				Consistently(func() bool {
-					_, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+					_, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 					Expect(err).ToNot(HaveOccurred())
 
 					return acquired
@@ -381,7 +378,7 @@ var _ = Describe("Resource Config Scope", func() {
 
 				time.Sleep(time.Second)
 
-				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, 1*time.Second)
+				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 
