@@ -103,8 +103,7 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 			},
 		})
 
-		resourceFactory := resource.NewResourceFactory()
-		fetchSourceFactory = resource.NewFetchSourceFactory(fakeResourceCacheFactory, resourceFactory)
+		fetchSourceFactory = resource.NewFetchSourceFactory(fakeResourceCacheFactory)
 		fetchSource = fetchSourceFactory.NewFetchSource(
 			logger,
 			fakeWorker,

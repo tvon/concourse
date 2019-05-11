@@ -4,10 +4,52 @@ package dbfakes
 import (
 	"sync"
 
+	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/atc/db"
 )
 
 type FakeResourceFactory struct {
+	CreateResourceCheckStub        func(int, string) (db.ResourceCheck, error)
+	createResourceCheckMutex       sync.RWMutex
+	createResourceCheckArgsForCall []struct {
+		arg1 int
+		arg2 string
+	}
+	createResourceCheckReturns struct {
+		result1 db.ResourceCheck
+		result2 error
+	}
+	createResourceCheckReturnsOnCall map[int]struct {
+		result1 db.ResourceCheck
+		result2 error
+	}
+	CreateResourceCheckFromVersionStub        func(int, string, atc.Version) (db.ResourceCheck, error)
+	createResourceCheckFromVersionMutex       sync.RWMutex
+	createResourceCheckFromVersionArgsForCall []struct {
+		arg1 int
+		arg2 string
+		arg3 atc.Version
+	}
+	createResourceCheckFromVersionReturns struct {
+		result1 db.ResourceCheck
+		result2 error
+	}
+	createResourceCheckFromVersionReturnsOnCall map[int]struct {
+		result1 db.ResourceCheck
+		result2 error
+	}
+	ResourceChecksStub        func() ([]db.ResourceCheck, error)
+	resourceChecksMutex       sync.RWMutex
+	resourceChecksArgsForCall []struct {
+	}
+	resourceChecksReturns struct {
+		result1 []db.ResourceCheck
+		result2 error
+	}
+	resourceChecksReturnsOnCall map[int]struct {
+		result1 []db.ResourceCheck
+		result2 error
+	}
 	VisibleResourcesStub        func([]string) ([]db.Resource, error)
 	visibleResourcesMutex       sync.RWMutex
 	visibleResourcesArgsForCall []struct {
@@ -23,6 +65,190 @@ type FakeResourceFactory struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheck(arg1 int, arg2 string) (db.ResourceCheck, error) {
+	fake.createResourceCheckMutex.Lock()
+	ret, specificReturn := fake.createResourceCheckReturnsOnCall[len(fake.createResourceCheckArgsForCall)]
+	fake.createResourceCheckArgsForCall = append(fake.createResourceCheckArgsForCall, struct {
+		arg1 int
+		arg2 string
+	}{arg1, arg2})
+	fake.recordInvocation("CreateResourceCheck", []interface{}{arg1, arg2})
+	fake.createResourceCheckMutex.Unlock()
+	if fake.CreateResourceCheckStub != nil {
+		return fake.CreateResourceCheckStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.createResourceCheckReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckCallCount() int {
+	fake.createResourceCheckMutex.RLock()
+	defer fake.createResourceCheckMutex.RUnlock()
+	return len(fake.createResourceCheckArgsForCall)
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckCalls(stub func(int, string) (db.ResourceCheck, error)) {
+	fake.createResourceCheckMutex.Lock()
+	defer fake.createResourceCheckMutex.Unlock()
+	fake.CreateResourceCheckStub = stub
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckArgsForCall(i int) (int, string) {
+	fake.createResourceCheckMutex.RLock()
+	defer fake.createResourceCheckMutex.RUnlock()
+	argsForCall := fake.createResourceCheckArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckReturns(result1 db.ResourceCheck, result2 error) {
+	fake.createResourceCheckMutex.Lock()
+	defer fake.createResourceCheckMutex.Unlock()
+	fake.CreateResourceCheckStub = nil
+	fake.createResourceCheckReturns = struct {
+		result1 db.ResourceCheck
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckReturnsOnCall(i int, result1 db.ResourceCheck, result2 error) {
+	fake.createResourceCheckMutex.Lock()
+	defer fake.createResourceCheckMutex.Unlock()
+	fake.CreateResourceCheckStub = nil
+	if fake.createResourceCheckReturnsOnCall == nil {
+		fake.createResourceCheckReturnsOnCall = make(map[int]struct {
+			result1 db.ResourceCheck
+			result2 error
+		})
+	}
+	fake.createResourceCheckReturnsOnCall[i] = struct {
+		result1 db.ResourceCheck
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersion(arg1 int, arg2 string, arg3 atc.Version) (db.ResourceCheck, error) {
+	fake.createResourceCheckFromVersionMutex.Lock()
+	ret, specificReturn := fake.createResourceCheckFromVersionReturnsOnCall[len(fake.createResourceCheckFromVersionArgsForCall)]
+	fake.createResourceCheckFromVersionArgsForCall = append(fake.createResourceCheckFromVersionArgsForCall, struct {
+		arg1 int
+		arg2 string
+		arg3 atc.Version
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("CreateResourceCheckFromVersion", []interface{}{arg1, arg2, arg3})
+	fake.createResourceCheckFromVersionMutex.Unlock()
+	if fake.CreateResourceCheckFromVersionStub != nil {
+		return fake.CreateResourceCheckFromVersionStub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.createResourceCheckFromVersionReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersionCallCount() int {
+	fake.createResourceCheckFromVersionMutex.RLock()
+	defer fake.createResourceCheckFromVersionMutex.RUnlock()
+	return len(fake.createResourceCheckFromVersionArgsForCall)
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersionCalls(stub func(int, string, atc.Version) (db.ResourceCheck, error)) {
+	fake.createResourceCheckFromVersionMutex.Lock()
+	defer fake.createResourceCheckFromVersionMutex.Unlock()
+	fake.CreateResourceCheckFromVersionStub = stub
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersionArgsForCall(i int) (int, string, atc.Version) {
+	fake.createResourceCheckFromVersionMutex.RLock()
+	defer fake.createResourceCheckFromVersionMutex.RUnlock()
+	argsForCall := fake.createResourceCheckFromVersionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersionReturns(result1 db.ResourceCheck, result2 error) {
+	fake.createResourceCheckFromVersionMutex.Lock()
+	defer fake.createResourceCheckFromVersionMutex.Unlock()
+	fake.CreateResourceCheckFromVersionStub = nil
+	fake.createResourceCheckFromVersionReturns = struct {
+		result1 db.ResourceCheck
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceFactory) CreateResourceCheckFromVersionReturnsOnCall(i int, result1 db.ResourceCheck, result2 error) {
+	fake.createResourceCheckFromVersionMutex.Lock()
+	defer fake.createResourceCheckFromVersionMutex.Unlock()
+	fake.CreateResourceCheckFromVersionStub = nil
+	if fake.createResourceCheckFromVersionReturnsOnCall == nil {
+		fake.createResourceCheckFromVersionReturnsOnCall = make(map[int]struct {
+			result1 db.ResourceCheck
+			result2 error
+		})
+	}
+	fake.createResourceCheckFromVersionReturnsOnCall[i] = struct {
+		result1 db.ResourceCheck
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceFactory) ResourceChecks() ([]db.ResourceCheck, error) {
+	fake.resourceChecksMutex.Lock()
+	ret, specificReturn := fake.resourceChecksReturnsOnCall[len(fake.resourceChecksArgsForCall)]
+	fake.resourceChecksArgsForCall = append(fake.resourceChecksArgsForCall, struct {
+	}{})
+	fake.recordInvocation("ResourceChecks", []interface{}{})
+	fake.resourceChecksMutex.Unlock()
+	if fake.ResourceChecksStub != nil {
+		return fake.ResourceChecksStub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.resourceChecksReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeResourceFactory) ResourceChecksCallCount() int {
+	fake.resourceChecksMutex.RLock()
+	defer fake.resourceChecksMutex.RUnlock()
+	return len(fake.resourceChecksArgsForCall)
+}
+
+func (fake *FakeResourceFactory) ResourceChecksCalls(stub func() ([]db.ResourceCheck, error)) {
+	fake.resourceChecksMutex.Lock()
+	defer fake.resourceChecksMutex.Unlock()
+	fake.ResourceChecksStub = stub
+}
+
+func (fake *FakeResourceFactory) ResourceChecksReturns(result1 []db.ResourceCheck, result2 error) {
+	fake.resourceChecksMutex.Lock()
+	defer fake.resourceChecksMutex.Unlock()
+	fake.ResourceChecksStub = nil
+	fake.resourceChecksReturns = struct {
+		result1 []db.ResourceCheck
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeResourceFactory) ResourceChecksReturnsOnCall(i int, result1 []db.ResourceCheck, result2 error) {
+	fake.resourceChecksMutex.Lock()
+	defer fake.resourceChecksMutex.Unlock()
+	fake.ResourceChecksStub = nil
+	if fake.resourceChecksReturnsOnCall == nil {
+		fake.resourceChecksReturnsOnCall = make(map[int]struct {
+			result1 []db.ResourceCheck
+			result2 error
+		})
+	}
+	fake.resourceChecksReturnsOnCall[i] = struct {
+		result1 []db.ResourceCheck
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeResourceFactory) VisibleResources(arg1 []string) ([]db.Resource, error) {
@@ -96,6 +322,12 @@ func (fake *FakeResourceFactory) VisibleResourcesReturnsOnCall(i int, result1 []
 func (fake *FakeResourceFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createResourceCheckMutex.RLock()
+	defer fake.createResourceCheckMutex.RUnlock()
+	fake.createResourceCheckFromVersionMutex.RLock()
+	defer fake.createResourceCheckFromVersionMutex.RUnlock()
+	fake.resourceChecksMutex.RLock()
+	defer fake.resourceChecksMutex.RUnlock()
 	fake.visibleResourcesMutex.RLock()
 	defer fake.visibleResourcesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
