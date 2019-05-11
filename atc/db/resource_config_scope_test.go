@@ -328,7 +328,7 @@ var _ = Describe("Resource Config Scope", func() {
 			BeforeEach(func() {
 				var err error
 				var acquired bool
-				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 			})
@@ -338,7 +338,7 @@ var _ = Describe("Resource Config Scope", func() {
 			})
 
 			It("does not get the lock", func() {
-				_, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+				_, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeFalse())
 			})
@@ -350,7 +350,7 @@ var _ = Describe("Resource Config Scope", func() {
 				})
 
 				It("gets the lock", func() {
-					lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+					lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(acquired).To(BeTrue())
 
@@ -362,12 +362,12 @@ var _ = Describe("Resource Config Scope", func() {
 
 		Context("when there has not been a check recently", func() {
 			It("gets and keeps the lock and stops others from periodically getting it", func() {
-				lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+				lock, acquired, err := resourceConfigScope.AcquireResourceCheckingLock(logger)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 
 				Consistently(func() bool {
-					_, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+					_, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger)
 					Expect(err).ToNot(HaveOccurred())
 
 					return acquired
@@ -378,7 +378,7 @@ var _ = Describe("Resource Config Scope", func() {
 
 				time.Sleep(time.Second)
 
-				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger, time.Second)
+				lock, acquired, err = resourceConfigScope.AcquireResourceCheckingLock(logger)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(acquired).To(BeTrue())
 
